@@ -5,25 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Keystone Sandbox</title>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
     
     body {
-      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, "Apple Color Emoji", Arial, sans-serif;
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, sans-serif;
       background: #ffffff;
       color: #37352f;
       line-height: 1.5;
       -webkit-font-smoothing: antialiased;
     }
     
-    .container {
-      max-width: 708px;
-      margin: 0 auto;
-      padding: 96px 24px 24px;
-    }
+    .container { max-width: 900px; margin: 0 auto; padding: 48px 24px 24px; }
     
     /* Tabs */
     .tabs {
@@ -31,7 +23,6 @@
       gap: 4px;
       margin-bottom: 32px;
       border-bottom: 1px solid #e8e7e4;
-      padding-bottom: 0;
     }
     
     .tab {
@@ -46,114 +37,183 @@
       transition: all 0.15s ease;
     }
     
-    .tab:hover {
-      background: #f1f1ef;
-      border-radius: 4px 4px 0 0;
-    }
+    .tab:hover { background: #f1f1ef; border-radius: 4px 4px 0 0; }
+    .tab.active { color: #37352f; border-bottom-color: #37352f; }
     
-    .tab.active {
-      color: #37352f;
-      border-bottom-color: #37352f;
-    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
     
-    /* Content */
-    .tab-content {
-      display: none;
-    }
+    h1 { font-size: 40px; font-weight: 700; margin-bottom: 4px; letter-spacing: -0.02em; }
+    h2 { font-size: 24px; font-weight: 600; margin-bottom: 16px; }
+    .subtitle { font-size: 16px; color: #787774; margin-bottom: 32px; }
+    p { margin-bottom: 16px; font-size: 16px; }
+    .emoji { font-size: 64px; margin-bottom: 16px; }
     
-    .tab-content.active {
-      display: block;
-    }
-    
-    h1 {
-      font-size: 40px;
-      font-weight: 700;
-      margin-bottom: 4px;
-      letter-spacing: -0.02em;
-    }
-    
-    .subtitle {
-      font-size: 16px;
-      color: #787774;
-      margin-bottom: 32px;
-    }
-    
-    p {
-      margin-bottom: 16px;
-      font-size: 16px;
-    }
-    
-    .emoji {
-      font-size: 64px;
-      margin-bottom: 16px;
-    }
-    
-    /* Character Counter */
-    .counter-container {
-      margin-top: 24px;
-    }
-    
-    textarea {
+    /* Forms */
+    textarea, input[type="text"] {
       width: 100%;
-      min-height: 200px;
       padding: 12px;
       font-family: inherit;
       font-size: 16px;
       border: 1px solid #e8e7e4;
       border-radius: 4px;
-      resize: vertical;
       outline: none;
       transition: border-color 0.15s ease;
     }
+    textarea:focus, input[type="text"]:focus { border-color: #2eaadc; }
+    textarea { min-height: 200px; resize: vertical; }
+    textarea::placeholder, input::placeholder { color: #c4c4c0; }
     
-    textarea:focus {
-      border-color: #2eaadc;
+    /* Stats grid */
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 24px; }
+    .stat-box { background: #f7f6f3; border-radius: 4px; padding: 16px; text-align: center; }
+    .stat-value { font-size: 32px; font-weight: 600; color: #37352f; margin-bottom: 4px; }
+    .stat-label { font-size: 12px; color: #787774; text-transform: uppercase; letter-spacing: 0.05em; }
+    
+    /* Buttons */
+    .btn {
+      padding: 8px 16px;
+      font-size: 14px;
+      font-weight: 500;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .btn-primary { background: #2eaadc; color: white; }
+    .btn-primary:hover { background: #2496c4; }
+    .btn-secondary { background: #f1f1ef; color: #37352f; }
+    .btn-secondary:hover { background: #e8e7e4; }
+    .btn-danger { background: #eb5757; color: white; }
+    .btn-danger:hover { background: #d94444; }
+    .btn-sm { padding: 4px 8px; font-size: 12px; }
+    
+    /* Webhook Logger */
+    .webhook-url {
+      background: #f7f6f3;
+      padding: 16px;
+      border-radius: 4px;
+      margin-bottom: 24px;
+      font-family: ui-monospace, monospace;
+      font-size: 14px;
+      word-break: break-all;
+    }
+    .webhook-url code { color: #2eaadc; }
+    
+    .toolbar {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
     }
     
-    textarea::placeholder {
-      color: #c4c4c0;
+    .channel-filter {
+      padding: 6px 12px;
+      border: 1px solid #e8e7e4;
+      border-radius: 4px;
+      font-size: 14px;
+      min-width: 150px;
     }
     
-    .stats {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 16px;
-      margin-top: 24px;
-    }
+    .hook-list { display: flex; flex-direction: column; gap: 8px; }
     
-    .stat-box {
+    .hook-item {
       background: #f7f6f3;
       border-radius: 4px;
-      padding: 16px;
-      text-align: center;
+      padding: 12px 16px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .hook-item:hover { background: #efeeeb; }
+    .hook-item.expanded { background: #fff; border: 1px solid #e8e7e4; }
+    
+    .hook-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
     }
     
-    .stat-value {
-      font-size: 32px;
+    .hook-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    
+    .method {
       font-weight: 600;
-      color: #37352f;
-      margin-bottom: 4px;
+      font-size: 12px;
+      padding: 2px 6px;
+      border-radius: 3px;
+      background: #e8e7e4;
+    }
+    .method.POST { background: #d3f9d8; color: #2b8a3e; }
+    .method.GET { background: #d0ebff; color: #1971c2; }
+    .method.PUT { background: #fff3bf; color: #e67700; }
+    .method.DELETE { background: #ffe3e3; color: #c92a2a; }
+    
+    .channel-badge {
+      font-size: 13px;
+      color: #787774;
+      font-family: ui-monospace, monospace;
     }
     
-    .stat-label {
+    .hook-time { font-size: 12px; color: #9b9a97; }
+    .hook-size { font-size: 12px; color: #9b9a97; }
+    
+    .hook-detail {
+      display: none;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid #e8e7e4;
+    }
+    .hook-item.expanded .hook-detail { display: block; }
+    
+    .detail-section { margin-bottom: 16px; }
+    .detail-section h4 { font-size: 12px; color: #787774; margin-bottom: 8px; text-transform: uppercase; }
+    
+    pre {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 12px;
+      border-radius: 4px;
+      overflow-x: auto;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+    
+    .empty-state {
+      text-align: center;
+      padding: 48px;
+      color: #787774;
+    }
+    
+    .live-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
       font-size: 12px;
       color: #787774;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
+    }
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #40c057;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
     }
     
     @media (max-width: 600px) {
-      .stats {
-        grid-template-columns: repeat(2, 1fr);
-      }
-      
-      h1 {
-        font-size: 32px;
-      }
-      
-      .container {
-        padding-top: 48px;
-      }
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      h1 { font-size: 32px; }
+      .container { padding-top: 24px; }
+      .toolbar { flex-direction: column; align-items: stretch; }
     }
   </style>
 </head>
@@ -162,23 +222,29 @@
     <div class="tabs">
       <button class="tab active" data-tab="home">Home</button>
       <button class="tab" data-tab="counter">Character Counter</button>
+      <button class="tab" data-tab="webhooks">Webhook Logger</button>
     </div>
     
+    <!-- Home Tab -->
     <div id="home" class="tab-content active">
       <div class="emoji">🌀</div>
       <h1>Keystone Sandbox</h1>
       <p class="subtitle">A space for building and experimenting.</p>
       <p>This is the Keystone AI general-purpose sandbox. Use it to prototype ideas, test tools, and build quickly.</p>
-      <p>Navigate to the <strong>Character Counter</strong> tab to try out a simple utility.</p>
+      <p>Available tools:</p>
+      <ul style="margin-left: 24px; margin-bottom: 16px;">
+        <li><strong>Character Counter</strong> — Count characters, words, and lines</li>
+        <li><strong>Webhook Logger</strong> — Capture and inspect incoming webhooks</li>
+      </ul>
     </div>
     
+    <!-- Character Counter Tab -->
     <div id="counter" class="tab-content">
       <h1>Character Counter</h1>
       <p class="subtitle">Paste or type text below to see statistics.</p>
       
       <div class="counter-container">
         <textarea id="text-input" placeholder="Start typing or paste your text here..."></textarea>
-        
         <div class="stats">
           <div class="stat-box">
             <div class="stat-value" id="chars">0</div>
@@ -199,6 +265,33 @@
         </div>
       </div>
     </div>
+    
+    <!-- Webhook Logger Tab -->
+    <div id="webhooks" class="tab-content">
+      <h1>Webhook Logger</h1>
+      <p class="subtitle">Capture and inspect incoming HTTP requests.</p>
+      
+      <div class="webhook-url">
+        <strong>Send webhooks to:</strong><br>
+        <code id="webhook-url"></code>
+      </div>
+      
+      <div class="toolbar">
+        <select class="channel-filter" id="channel-filter">
+          <option value="">All channels</option>
+        </select>
+        <button class="btn btn-secondary" id="refresh-btn">Refresh</button>
+        <button class="btn btn-danger btn-sm" id="clear-btn">Clear All</button>
+        <div class="live-indicator">
+          <div class="live-dot"></div>
+          <span>Auto-refresh every 5s</span>
+        </div>
+      </div>
+      
+      <div id="hook-list" class="hook-list">
+        <div class="empty-state">No webhooks received yet.<br>Send a POST request to the URL above.</div>
+      </div>
+    </div>
   </div>
   
   <script>
@@ -207,28 +300,218 @@
       tab.addEventListener('click', () => {
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-        
         tab.classList.add('active');
         document.getElementById(tab.dataset.tab).classList.add('active');
       });
     });
     
-    // Character counter - client-side for instant feedback
+    // Character counter
     const textInput = document.getElementById('text-input');
-    const chars = document.getElementById('chars');
-    const charsNoSpaces = document.getElementById('chars-no-spaces');
-    const words = document.getElementById('words');
-    const lines = document.getElementById('lines');
-    
     function updateStats() {
       const text = textInput.value;
-      chars.textContent = text.length;
-      charsNoSpaces.textContent = text.replace(/\s/g, '').length;
-      words.textContent = text.trim() ? text.trim().split(/\s+/).length : 0;
-      lines.textContent = text ? text.split(/\n/).length : 0;
+      document.getElementById('chars').textContent = text.length;
+      document.getElementById('chars-no-spaces').textContent = text.replace(/\s/g, '').length;
+      document.getElementById('words').textContent = text.trim() ? text.trim().split(/\s+/).length : 0;
+      document.getElementById('lines').textContent = text ? text.split(/\n/).length : 0;
+    }
+    textInput.addEventListener('input', updateStats);
+    
+    // Webhook Logger
+    const baseUrl = window.location.origin;
+    document.getElementById('webhook-url').textContent = `${baseUrl}/hook/your-channel`;
+    
+    const hookList = document.getElementById('hook-list');
+    const channelFilter = document.getElementById('channel-filter');
+    let currentChannel = '';
+    let expandedId = null;
+    
+    async function loadChannels() {
+      try {
+        const res = await fetch('/api/hooks/channels');
+        const { data } = await res.json();
+        channelFilter.innerHTML = '<option value="">All channels</option>';
+        data.forEach(ch => {
+          const opt = document.createElement('option');
+          opt.value = ch.channel;
+          opt.textContent = `${ch.channel} (${ch.count})`;
+          channelFilter.appendChild(opt);
+        });
+      } catch (e) {
+        console.error('Failed to load channels:', e);
+      }
     }
     
-    textInput.addEventListener('input', updateStats);
+    async function loadHooks() {
+      try {
+        const url = currentChannel ? `/api/hooks?channel=${encodeURIComponent(currentChannel)}` : '/api/hooks';
+        const res = await fetch(url);
+        const { data, total } = await res.json();
+        
+        if (data.length === 0) {
+          hookList.innerHTML = '<div class="empty-state">No webhooks received yet.<br>Send a POST request to the URL above.</div>';
+          return;
+        }
+        
+        hookList.innerHTML = data.map(hook => `
+          <div class="hook-item ${expandedId === hook.id ? 'expanded' : ''}" data-id="${hook.id}">
+            <div class="hook-header">
+              <div class="hook-meta">
+                <span class="method ${hook.method}">${hook.method}</span>
+                <span class="channel-badge">/${hook.channel}</span>
+                <span class="hook-size">${formatSize(hook.size)}</span>
+              </div>
+              <div class="hook-time">${formatTime(hook.received_at)}</div>
+            </div>
+            <div class="hook-detail" id="detail-${hook.id}">
+              <div class="detail-section">
+                <h4>Loading...</h4>
+              </div>
+            </div>
+          </div>
+        `).join('');
+        
+        // Re-expand if was expanded
+        if (expandedId) {
+          const item = document.querySelector(`[data-id="${expandedId}"]`);
+          if (item && item.classList.contains('expanded')) {
+            loadHookDetail(expandedId);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to load hooks:', e);
+      }
+    }
+    
+    async function loadHookDetail(id) {
+      try {
+        const res = await fetch(`/api/hooks/${id}`);
+        const { data } = await res.json();
+        
+        const detailEl = document.getElementById(`detail-${id}`);
+        if (!detailEl) return;
+        
+        let bodyDisplay = data.body || '(empty)';
+        if (data.bodyParsed) {
+          bodyDisplay = JSON.stringify(data.bodyParsed, null, 2);
+        }
+        
+        detailEl.innerHTML = `
+          <div class="detail-section">
+            <h4>Headers</h4>
+            <pre>${JSON.stringify(data.headers, null, 2)}</pre>
+          </div>
+          ${Object.keys(data.query || {}).length > 0 ? `
+            <div class="detail-section">
+              <h4>Query Parameters</h4>
+              <pre>${JSON.stringify(data.query, null, 2)}</pre>
+            </div>
+          ` : ''}
+          <div class="detail-section">
+            <h4>Body</h4>
+            <pre>${escapeHtml(bodyDisplay)}</pre>
+          </div>
+          <div style="margin-top: 16px;">
+            <button class="btn btn-danger btn-sm" onclick="deleteHook(${id})">Delete</button>
+          </div>
+        `;
+      } catch (e) {
+        console.error('Failed to load hook detail:', e);
+      }
+    }
+    
+    async function deleteHook(id) {
+      if (!confirm('Delete this webhook?')) return;
+      try {
+        await fetch(`/api/hooks/${id}`, { method: 'DELETE' });
+        expandedId = null;
+        loadHooks();
+        loadChannels();
+      } catch (e) {
+        console.error('Failed to delete hook:', e);
+      }
+    }
+    
+    // Event delegation for hook items
+    hookList.addEventListener('click', (e) => {
+      const item = e.target.closest('.hook-item');
+      if (!item || e.target.closest('button')) return;
+      
+      const id = parseInt(item.dataset.id);
+      
+      if (item.classList.contains('expanded')) {
+        item.classList.remove('expanded');
+        expandedId = null;
+      } else {
+        document.querySelectorAll('.hook-item').forEach(i => i.classList.remove('expanded'));
+        item.classList.add('expanded');
+        expandedId = id;
+        loadHookDetail(id);
+      }
+    });
+    
+    channelFilter.addEventListener('change', () => {
+      currentChannel = channelFilter.value;
+      loadHooks();
+    });
+    
+    document.getElementById('refresh-btn').addEventListener('click', () => {
+      loadHooks();
+      loadChannels();
+    });
+    
+    document.getElementById('clear-btn').addEventListener('click', async () => {
+      const channel = currentChannel || 'all channels';
+      if (!confirm(`Delete all webhooks from ${channel}?`)) return;
+      
+      try {
+        if (currentChannel) {
+          await fetch(`/api/hooks/channel/${encodeURIComponent(currentChannel)}`, { method: 'DELETE' });
+        } else {
+          // Delete all by getting all channels and clearing each
+          const res = await fetch('/api/hooks/channels');
+          const { data } = await res.json();
+          for (const ch of data) {
+            await fetch(`/api/hooks/channel/${encodeURIComponent(ch.channel)}`, { method: 'DELETE' });
+          }
+        }
+        expandedId = null;
+        loadHooks();
+        loadChannels();
+      } catch (e) {
+        console.error('Failed to clear hooks:', e);
+      }
+    });
+    
+    // Helpers
+    function formatTime(iso) {
+      const d = new Date(iso);
+      const now = new Date();
+      const diff = (now - d) / 1000;
+      
+      if (diff < 60) return 'just now';
+      if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+      if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+      return d.toLocaleDateString();
+    }
+    
+    function formatSize(bytes) {
+      if (bytes === 0) return '0 B';
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    }
+    
+    function escapeHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+    
+    // Initial load and auto-refresh
+    loadChannels();
+    loadHooks();
+    setInterval(() => {
+      loadHooks();
+      loadChannels();
+    }, 5000);
   </script>
 </body>
 </html>
