@@ -160,7 +160,7 @@ app.delete('/api/hooks/channel/:channel', (req, res) => {
 const fs = require('fs');
 const path = require('path');
 
-const KNOWLEDGE_PATH = '/root/.clawdbot/workspace/memory/knowledge';
+const KNOWLEDGE_PATH = path.join(__dirname, 'knowledge');
 
 // List all atoms
 app.get('/api/knowledge/atoms', (req, res) => {
