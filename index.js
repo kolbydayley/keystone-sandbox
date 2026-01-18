@@ -156,8 +156,94 @@ app.delete('/api/hooks/channel/:channel', (req, res) => {
   res.json({ success: true, message: `Deleted ${result.changes} hooks from channel: ${channel}` });
 });
 
+// ============ Knowledge Base API ============
+const fs = require('fs');
+const path = require('path');
+
+const KNOWLEDGE_PATH = '/root/.clawdbot/workspace/memory/knowledge';
+
+// List all atoms
+app.get('/api/knowledge/atoms', (req, res) => {
+  try {
+    const atomsDir = path.join(KNOWLEDGE_PATH, 'atoms');
+    const files = fs.readdirSync(atomsDir).filter(f => f.endsWith('.md'));
+    
+    const atoms = files.map(file => {
+      const content = fs.readFileSync(path.join(atomsDir, file), 'utf8');
+      const frontmatter = parseFrontmatter(content);
+      return {
+        file,
+        ...frontmatter,
+        preview: content.split('---')[2]?.trim().slice(0, 200) + '...'
+      };
+    });
+    
+    res.json({ success: true, data: atoms });
+  } catch (err) {
+    res.json({ success: false, error: err.message });
+  }
+});
+
+// List all topics
+app.get('/api/knowledge/topics', (req, res) => {
+  try {
+    const topicsDir = path.join(KNOWLEDGE_PATH, 'topics');
+    const files = fs.readdirSync(topicsDir).filter(f => f.endsWith('.md'));
+    
+    const topics = files.map(file => {
+      const content = fs.readFileSync(path.join(topicsDir, file), 'utf8');
+      const title = content.split('\n')[0]?.replace(/^#\s*/, '') || file;
+      return { file, title, content };
+    });
+    
+    res.json({ success: true, data: topics });
+  } catch (err) {
+    res.json({ success: false, error: err.message });
+  }
+});
+
+// Get single atom
+app.get('/api/knowledge/atoms/:id', (req, res) => {
+  try {
+    const atomsDir = path.join(KNOWLEDGE_PATH, 'atoms');
+    const files = fs.readdirSync(atomsDir).filter(f => f.startsWith(req.params.id));
+    
+    if (files.length === 0) {
+      return res.status(404).json({ success: false, error: 'Atom not found' });
+    }
+    
+    const content = fs.readFileSync(path.join(atomsDir, files[0]), 'utf8');
+    const frontmatter = parseFrontmatter(content);
+    const body = content.split('---')[2]?.trim() || '';
+    
+    res.json({ success: true, data: { file: files[0], ...frontmatter, body } });
+  } catch (err) {
+    res.json({ success: false, error: err.message });
+  }
+});
+
+// Helper to parse YAML frontmatter
+function parseFrontmatter(content) {
+  const match = content.match(/^---\n([\s\S]*?)\n---/);
+  if (!match) return {};
+  
+  const yaml = match[1];
+  const result = {};
+  yaml.split('\n').forEach(line => {
+    const [key, ...valueParts] = line.split(':');
+    if (key && valueParts.length) {
+      let value = valueParts.join(':').trim();
+      // Parse arrays
+      if (value.startsWith('[') && value.endsWith(']')) {
+        value = value.slice(1, -1).split(',').map(v => v.trim());
+      }
+      result[key.trim()] = value;
+    }
+  });
+  return result;
+}
+
 // ============ Start Server ============
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
 });
-// Staging deployment trigger Sat Jan 17 10:59:05 UTC 2026
