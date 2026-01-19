@@ -160,6 +160,48 @@ app.delete('/api/hooks/channel/:channel', (req, res) => {
 
 // ============ Research Docs API ============
 const RESEARCH_PATH = path.join(__dirname, 'research');
+const DECISIONS_FILE = path.join(__dirname, 'decisions.json');
+
+// Load decisions
+function loadDecisions() {
+  try {
+    if (fs.existsSync(DECISIONS_FILE)) {
+      return JSON.parse(fs.readFileSync(DECISIONS_FILE, 'utf8'));
+    }
+  } catch (err) {
+    console.error('Error loading decisions:', err);
+  }
+  return {};
+}
+
+// Save decisions
+function saveDecisions(decisions) {
+  fs.writeFileSync(DECISIONS_FILE, JSON.stringify(decisions, null, 2));
+}
+
+// Get all decisions
+app.get('/api/decisions', (req, res) => {
+  res.json({ success: true, data: loadDecisions() });
+});
+
+// Save a decision
+app.post('/api/decisions', (req, res) => {
+  try {
+    const { key, value } = req.body;
+    if (!key) {
+      return res.status(400).json({ success: false, error: 'Key required' });
+    }
+    const decisions = loadDecisions();
+    decisions[key] = {
+      value,
+      updatedAt: new Date().toISOString()
+    };
+    saveDecisions(decisions);
+    res.json({ success: true, data: decisions[key] });
+  } catch (err) {
+    res.json({ success: false, error: err.message });
+  }
+});
 
 // List all research docs
 app.get('/api/research', (req, res) => {

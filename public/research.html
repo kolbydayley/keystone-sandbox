@@ -110,6 +110,47 @@
     }
     .content input[type="checkbox"] { margin-right: 0.5rem; }
     .loading { color: #888; padding: 2rem; text-align: center; }
+    
+    /* Decision input styles */
+    .decision-box {
+      background: rgba(139, 92, 246, 0.1);
+      border: 2px solid rgba(139, 92, 246, 0.3);
+      border-radius: 8px;
+      padding: 1rem;
+      margin: 1rem 0;
+    }
+    .decision-box h4 {
+      color: #8b5cf6;
+      margin-bottom: 0.75rem;
+      font-size: 0.875rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .decision-input {
+      width: 100%;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 6px;
+      padding: 0.75rem;
+      color: #e4e4e4;
+      font-family: inherit;
+      font-size: 0.875rem;
+      resize: vertical;
+      min-height: 80px;
+    }
+    .decision-input:focus {
+      outline: none;
+      border-color: #8b5cf6;
+    }
+    .decision-meta {
+      font-size: 0.75rem;
+      color: #666;
+      margin-top: 0.5rem;
+    }
+    .decision-saved {
+      color: #4ade80;
+    }
+    
     @media (max-width: 768px) {
       .container { flex-direction: column; }
       .sidebar { width: 100%; border-right: none; border-bottom: 1px solid rgba(255,255,255,0.1); }
@@ -138,7 +179,9 @@
 
   <script>
     let docs = [];
+    let decisions = {};
     let activeFile = null;
+    let saveTimeouts = {};
 
     async function loadDocs() {
       const res = await fetch('/api/research');
@@ -146,9 +189,16 @@
       if (data.success) {
         docs = data.data;
         renderSidebar();
-        // Auto-load readouts first
         const readout = docs.find(d => d.isReadout);
         if (readout) loadDoc(readout.file);
+      }
+    }
+
+    async function loadDecisions() {
+      const res = await fetch('/api/decisions');
+      const data = await res.json();
+      if (data.success) {
+        decisions = data.data;
       }
     }
 
@@ -175,13 +225,122 @@
       const data = await res.json();
       
       if (data.success) {
-        document.getElementById('content').innerHTML = marked.parse(data.data.content);
+        let html = marked.parse(data.data.content);
+        
+        // Add decision input boxes after "Decision Needed" sections
+        html = addDecisionBoxes(html, file);
+        
+        document.getElementById('content').innerHTML = html;
+        
+        // Populate existing decisions
+        populateDecisions();
       } else {
         document.getElementById('content').innerHTML = `<div class="loading">Error: ${data.error}</div>`;
       }
     }
 
-    loadDocs();
+    function addDecisionBoxes(html, file) {
+      // Find h3 tags with "Decision Needed" and add input boxes after the following list
+      const sections = [
+        { id: 'business-entity', title: 'Business Entity Decisions' },
+        { id: 'dea', title: 'DEA Licensure Decisions' },
+        { id: 'malpractice', title: 'Malpractice Insurance Decisions' },
+        { id: 'erp', title: 'ERP/Practice Management Decisions' },
+        { id: 'credentialing', title: 'Insurance Credentialing Decisions' },
+        { id: 'website', title: 'Website Decisions' },
+        { id: 'banking', title: 'Banking & Accounting Decisions' },
+        { id: 'general', title: 'General Decisions' }
+      ];
+      
+      // Add decision boxes after each "Decision Needed" section
+      sections.forEach(section => {
+        const key = `${file}:${section.id}`;
+        const decisionBox = `
+          <div class="decision-box">
+            <h4>✏️ Your Decision: ${section.title}</h4>
+            <textarea 
+              class="decision-input" 
+              data-key="${key}"
+              placeholder="Enter your decision or notes here..."
+              onchange="saveDecision('${key}', this.value)"
+              oninput="debounceSave('${key}', this.value)"
+            ></textarea>
+            <div class="decision-meta" id="meta-${section.id}">Auto-saves as you type</div>
+          </div>
+        `;
+        
+        // Only add if this section might be relevant
+        if (html.toLowerCase().includes(section.id.replace('-', ' ')) || 
+            html.toLowerCase().includes('decision needed')) {
+          // Add at the end for now
+        }
+      });
+      
+      // Add a general decision box at the end
+      const generalKey = `${file}:decisions`;
+      const existing = decisions[generalKey];
+      html += `
+        <div class="decision-box">
+          <h4>✏️ Your Decisions & Notes</h4>
+          <textarea 
+            class="decision-input" 
+            data-key="${generalKey}"
+            placeholder="Answer the questions above, add notes, or record your decisions here...
+
+Example:
+- Business entity: Start with Utah PLLC first
+- ERP: Go with SimplePractice
+- Insurance: Hybrid approach - cash pay to start"
+            oninput="debounceSave('${generalKey}', this.value)"
+          ></textarea>
+          <div class="decision-meta" id="meta-${generalKey}">Auto-saves as you type</div>
+        </div>
+      `;
+      
+      return html;
+    }
+
+    function populateDecisions() {
+      document.querySelectorAll('.decision-input').forEach(input => {
+        const key = input.dataset.key;
+        if (decisions[key]) {
+          input.value = decisions[key].value || '';
+          const meta = document.getElementById(`meta-${key}`) || input.nextElementSibling;
+          if (meta && decisions[key].updatedAt) {
+            meta.innerHTML = `<span class="decision-saved">✓ Saved</span> · Last updated: ${new Date(decisions[key].updatedAt).toLocaleString()}`;
+          }
+        }
+      });
+    }
+
+    function debounceSave(key, value) {
+      if (saveTimeouts[key]) {
+        clearTimeout(saveTimeouts[key]);
+      }
+      saveTimeouts[key] = setTimeout(() => saveDecision(key, value), 1000);
+    }
+
+    async function saveDecision(key, value) {
+      const res = await fetch('/api/decisions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key, value })
+      });
+      const data = await res.json();
+      if (data.success) {
+        decisions[key] = data.data;
+        const input = document.querySelector(`[data-key="${key}"]`);
+        if (input) {
+          const meta = input.nextElementSibling;
+          if (meta) {
+            meta.innerHTML = `<span class="decision-saved">✓ Saved</span> · Last updated: ${new Date(data.data.updatedAt).toLocaleString()}`;
+          }
+        }
+      }
+    }
+
+    // Load everything
+    Promise.all([loadDocs(), loadDecisions()]);
   </script>
 </body>
 </html>
