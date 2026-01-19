@@ -1,5 +1,7 @@
 const express = require('express');
 const cors = require('cors');
+const fs = require('fs');
+const path = require('path');
 const db = require('./db');
 
 const app = express();
@@ -200,9 +202,6 @@ app.get('/api/research/:file', (req, res) => {
 });
 
 // ============ Knowledge Base API ============
-const fs = require('fs');
-const path = require('path');
-
 const KNOWLEDGE_PATH = path.join(__dirname, 'knowledge');
 
 // List all atoms
