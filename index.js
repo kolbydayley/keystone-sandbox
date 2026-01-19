@@ -156,6 +156,49 @@ app.delete('/api/hooks/channel/:channel', (req, res) => {
   res.json({ success: true, message: `Deleted ${result.changes} hooks from channel: ${channel}` });
 });
 
+// ============ Research Docs API ============
+const RESEARCH_PATH = path.join(__dirname, 'research');
+
+// List all research docs
+app.get('/api/research', (req, res) => {
+  try {
+    const files = fs.readdirSync(RESEARCH_PATH).filter(f => f.endsWith('.md'));
+    
+    const docs = files.map(file => {
+      const content = fs.readFileSync(path.join(RESEARCH_PATH, file), 'utf8');
+      const title = content.split('\n')[0]?.replace(/^#\s*/, '') || file;
+      const isReadout = file.includes('readout');
+      return { file, title, isReadout };
+    });
+    
+    // Sort: readouts first, then alphabetical
+    docs.sort((a, b) => {
+      if (a.isReadout && !b.isReadout) return -1;
+      if (!a.isReadout && b.isReadout) return 1;
+      return a.title.localeCompare(b.title);
+    });
+    
+    res.json({ success: true, data: docs });
+  } catch (err) {
+    res.json({ success: false, error: err.message });
+  }
+});
+
+// Get single research doc
+app.get('/api/research/:file', (req, res) => {
+  try {
+    const filePath = path.join(RESEARCH_PATH, req.params.file);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ success: false, error: 'Doc not found' });
+    }
+    const content = fs.readFileSync(filePath, 'utf8');
+    const title = content.split('\n')[0]?.replace(/^#\s*/, '') || req.params.file;
+    res.json({ success: true, data: { file: req.params.file, title, content } });
+  } catch (err) {
+    res.json({ success: false, error: err.message });
+  }
+});
+
 // ============ Knowledge Base API ============
 const fs = require('fs');
 const path = require('path');
