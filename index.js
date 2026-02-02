@@ -158,6 +158,191 @@ app.delete('/api/hooks/channel/:channel', (req, res) => {
   res.json({ success: true, message: `Deleted ${result.changes} hooks from channel: ${channel}` });
 });
 
+// ============ Health Data Ingestion (Health Auto Export) ============
+const HEALTH_API_KEY = process.env.HEALTH_API_KEY || 'keystone-health-2026';
+
+// POST /api/health-data — receive Health Auto Export JSON payloads
+app.post('/api/health-data', (req, res) => {
+  // Auth check
+  const authKey = req.headers['x-api-key'] || req.query.key;
+  if (authKey !== HEALTH_API_KEY) {
+    return res.status(401).json({ success: false, error: 'unauthorized' });
+  }
+
+  try {
+    const payload = req.body;
+    if (!payload || !payload.data) {
+      return res.status(400).json({ success: false, error: 'Invalid payload — expected { data: { metrics, workouts } }' });
+    }
+
+    const data = payload.data;
+    let metricsCount = 0, sleepCount = 0, workoutsCount = 0;
+
+    // Ingest metrics
+    if (data.metrics && Array.isArray(data.metrics)) {
+      const metricStmt = db.prepare(`
+        INSERT OR REPLACE INTO health_metrics (name, date, qty, unit, extra)
+        VALUES (?, ?, ?, ?, ?)
+      `);
+
+      const sleepStmt = db.prepare(`
+        INSERT OR REPLACE INTO health_sleep (date, total_sleep, asleep, core, deep, rem, in_bed, sleep_start, sleep_end, in_bed_start, in_bed_end)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+
+      for (const metric of data.metrics) {
+        const metricName = (metric.name || '').toLowerCase().replace(/\s+/g, '_');
+
+        // Sleep analysis gets its own table
+        if (metricName === 'sleep_analysis') {
+          if (metric.data && Array.isArray(metric.data)) {
+            for (const entry of metric.data) {
+              const date = (entry.date || '').split(' ')[0]; // yyyy-MM-dd
+              if (!date) continue;
+              sleepStmt.run(
+                date,
+                entry.totalSleep || null,
+                entry.asleep || null,
+                entry.core || null,
+                entry.deep || null,
+                entry.rem || null,
+                entry.inBed || null,
+                entry.sleepStart || null,
+                entry.sleepEnd || null,
+                entry.inBedStart || null,
+                entry.inBedEnd || null
+              );
+              sleepCount++;
+            }
+          }
+          continue;
+        }
+
+        // All other metrics
+        if (metric.data && Array.isArray(metric.data)) {
+          for (const entry of metric.data) {
+            const date = (entry.date || '').split(' ')[0];
+            if (!date) continue;
+
+            // Handle different metric formats
+            let qty = entry.qty;
+            let extra = null;
+
+            // Heart rate has Min/Avg/Max
+            if (entry.Min !== undefined || entry.Avg !== undefined || entry.Max !== undefined) {
+              qty = entry.Avg || entry.Min || entry.Max;
+              extra = JSON.stringify({ min: entry.Min, avg: entry.Avg, max: entry.Max });
+            }
+            // Blood pressure
+            if (entry.systolic !== undefined) {
+              extra = JSON.stringify({ systolic: entry.systolic, diastolic: entry.diastolic });
+              qty = entry.systolic;
+            }
+
+            metricStmt.run(
+              metricName,
+              entry.date || date, // Keep full timestamp for metrics
+              qty,
+              metric.units || null,
+              extra
+            );
+            metricsCount++;
+          }
+        }
+      }
+    }
+
+    // Ingest workouts
+    if (data.workouts && Array.isArray(data.workouts)) {
+      const wkStmt = db.prepare(`
+        INSERT INTO health_workouts (name, date, start_time, end_time, duration, active_energy, active_energy_unit, total_energy, total_energy_unit, distance, distance_unit, hr_avg, hr_max)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+
+      for (const w of data.workouts) {
+        const date = (w.start || '').split(' ')[0];
+        wkStmt.run(
+          w.name || null,
+          date,
+          w.start || null,
+          w.end || null,
+          w.duration || null,
+          w.activeEnergyBurned?.qty || null,
+          w.activeEnergyBurned?.units || null,
+          w.totalEnergy?.qty || null,
+          w.totalEnergy?.units || null,
+          w.distance?.qty || null,
+          w.distance?.units || null,
+          w.heartRateData?.[0]?.Avg || null,
+          w.heartRateData?.[0]?.Max || null
+        );
+        workoutsCount++;
+      }
+    }
+
+    // Log the sync
+    db.prepare(`
+      INSERT INTO health_sync_log (metrics_count, sleep_count, workouts_count, payload_size)
+      VALUES (?, ?, ?, ?)
+    `).run(metricsCount, sleepCount, workoutsCount, JSON.stringify(req.body).length);
+
+    res.json({
+      success: true,
+      ingested: { metrics: metricsCount, sleep: sleepCount, workouts: workoutsCount }
+    });
+  } catch (err) {
+    console.error('Health data ingestion error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /api/health-data — query stored health data
+app.get('/api/health-data', (req, res) => {
+  const { type = 'summary', days = 7, name } = req.query;
+
+  try {
+    const since = new Date(Date.now() - days * 86400000).toISOString().split('T')[0];
+
+    if (type === 'summary') {
+      const metrics = db.prepare(`SELECT name, COUNT(*) as count, MAX(date) as latest FROM health_metrics WHERE date >= ? GROUP BY name`).all(since);
+      const sleep = db.prepare(`SELECT COUNT(*) as count, MAX(date) as latest FROM health_sleep WHERE date >= ?`).get(since);
+      const workouts = db.prepare(`SELECT COUNT(*) as count, MAX(date) as latest FROM health_workouts WHERE date >= ?`).get(since);
+      const lastSync = db.prepare(`SELECT received_at FROM health_sync_log ORDER BY id DESC LIMIT 1`).get();
+      return res.json({ success: true, data: { metrics, sleep, workouts, lastSync: lastSync?.received_at } });
+    }
+
+    if (type === 'sleep') {
+      const rows = db.prepare(`SELECT * FROM health_sleep WHERE date >= ? ORDER BY date DESC`).all(since);
+      return res.json({ success: true, data: rows });
+    }
+
+    if (type === 'workouts') {
+      const rows = db.prepare(`SELECT * FROM health_workouts WHERE date >= ? ORDER BY date DESC`).all(since);
+      return res.json({ success: true, data: rows });
+    }
+
+    if (type === 'metrics' && name) {
+      const rows = db.prepare(`SELECT * FROM health_metrics WHERE name = ? AND date >= ? ORDER BY date DESC`).all(name, since);
+      return res.json({ success: true, data: rows });
+    }
+
+    if (type === 'metrics') {
+      const rows = db.prepare(`SELECT * FROM health_metrics WHERE date >= ? ORDER BY name, date DESC`).all(since);
+      return res.json({ success: true, data: rows });
+    }
+
+    res.json({ success: false, error: 'Unknown type. Use: summary, sleep, workouts, metrics' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /api/health-data/sync-log — recent syncs
+app.get('/api/health-data/sync-log', (req, res) => {
+  const rows = db.prepare(`SELECT * FROM health_sync_log ORDER BY id DESC LIMIT 20`).all();
+  res.json({ success: true, data: rows });
+});
+
 // ============ Research Docs API ============
 const RESEARCH_PATH = path.join(__dirname, 'research');
 const DECISIONS_FILE = path.join(__dirname, 'decisions.json');
