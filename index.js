@@ -162,9 +162,10 @@ app.delete('/api/hooks/channel/:channel', (req, res) => {
 const HEALTH_API_KEY = process.env.HEALTH_API_KEY || 'keystone-health-2026';
 
 // POST /api/health-data — receive Health Auto Export JSON payloads
-app.post('/api/health-data', (req, res) => {
-  // Auth check
-  const authKey = req.headers['x-api-key'] || req.query.key;
+// Also accept /api/health-data/:key for apps that strip query params
+app.post('/api/health-data/:pathKey?', (req, res) => {
+  // Auth check — header, query param, or path param
+  const authKey = req.headers['x-api-key'] || req.query.key || req.params.pathKey;
   if (authKey !== HEALTH_API_KEY) {
     return res.status(401).json({ success: false, error: 'unauthorized' });
   }
