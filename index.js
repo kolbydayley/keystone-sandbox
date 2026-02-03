@@ -303,9 +303,11 @@ app.get('/api/health-data/dump', (req, res) => {
   if (authKey !== HEALTH_API_KEY) return res.status(401).json({ success: false, error: 'unauthorized' });
   
   const dbPath = process.env.DB_PATH || path.join(__dirname, 'data', 'hooks.db');
-  // Checkpoint WAL first so the file is complete
   try { db.pragma('wal_checkpoint(TRUNCATE)'); } catch(e) {}
-  res.download(dbPath, 'health-data.db');
+  if (!fs.existsSync(dbPath)) return res.status(404).json({ success: false, error: 'no database' });
+  res.setHeader('Content-Type', 'application/x-sqlite3');
+  res.setHeader('Content-Disposition', 'attachment; filename=health-data.db');
+  fs.createReadStream(dbPath).pipe(res);
 });
 
 // GET /api/health-data — query stored health data
