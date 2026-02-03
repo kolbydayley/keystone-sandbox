@@ -95,6 +95,18 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_health_metrics_name_date ON health_metrics(name, date);
   CREATE INDEX IF NOT EXISTS idx_health_sleep_date ON health_sleep(date);
   CREATE INDEX IF NOT EXISTS idx_health_workouts_date ON health_workouts(date);
+
+  -- Dashboard view tracking
+  CREATE TABLE IF NOT EXISTS dashboard_views (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    dashboard TEXT NOT NULL,
+    viewed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    ip TEXT,
+    user_agent TEXT
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_dashboard_views_dashboard ON dashboard_views(dashboard);
+  CREATE INDEX IF NOT EXISTS idx_dashboard_views_viewed_at ON dashboard_views(viewed_at DESC);
 `);
 
 module.exports = db;

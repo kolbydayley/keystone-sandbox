@@ -526,6 +526,82 @@ function parseFrontmatter(content) {
   return result;
 }
 
+// ============ Dashboard View Tracking ============
+
+// Record a view (called by beacon in dashboard HTML — no auth required)
+app.post('/api/views/:dashboard', (req, res) => {
+  const { dashboard } = req.params;
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+  const userAgent = req.headers['user-agent'] || '';
+
+  // Rate limit: ignore duplicate views from same IP within 5 minutes
+  const recent = db.prepare(`
+    SELECT id FROM dashboard_views
+    WHERE dashboard = ? AND ip = ? AND viewed_at > datetime('now', '-5 minutes')
+  `).get(dashboard, ip);
+
+  if (recent) {
+    return res.json({ success: true, deduplicated: true });
+  }
+
+  db.prepare(`
+    INSERT INTO dashboard_views (dashboard, ip, user_agent) VALUES (?, ?, ?)
+  `).run(dashboard, ip, userAgent);
+
+  res.json({ success: true });
+});
+
+// Get view history for a dashboard (auth required)
+app.get('/api/views/:dashboard', (req, res) => {
+  const authKey = req.headers['x-api-key'] || req.query.key;
+  if (authKey !== HEALTH_API_KEY) return res.status(401).json({ success: false, error: 'unauthorized' });
+
+  const { dashboard } = req.params;
+  const { days = 90, limit = 100 } = req.query;
+  const since = new Date(Date.now() - days * 86400000).toISOString();
+
+  const views = db.prepare(`
+    SELECT id, viewed_at, ip, user_agent FROM dashboard_views
+    WHERE dashboard = ? AND viewed_at >= ?
+    ORDER BY viewed_at DESC LIMIT ?
+  `).all(dashboard, since, Number(limit));
+
+  const total = db.prepare(`
+    SELECT COUNT(*) as count FROM dashboard_views WHERE dashboard = ? AND viewed_at >= ?
+  `).get(dashboard, since);
+
+  const lastView = db.prepare(`
+    SELECT viewed_at FROM dashboard_views WHERE dashboard = ? ORDER BY viewed_at DESC LIMIT 1
+  `).get(dashboard);
+
+  res.json({
+    success: true,
+    dashboard,
+    totalViews: total.count,
+    lastViewedAt: lastView?.viewed_at || null,
+    views
+  });
+});
+
+// Summary of all dashboard views (auth required)
+app.get('/api/views', (req, res) => {
+  const authKey = req.headers['x-api-key'] || req.query.key;
+  if (authKey !== HEALTH_API_KEY) return res.status(401).json({ success: false, error: 'unauthorized' });
+
+  const { days = 90 } = req.query;
+  const since = new Date(Date.now() - days * 86400000).toISOString();
+
+  const summary = db.prepare(`
+    SELECT dashboard, COUNT(*) as views, MAX(viewed_at) as last_viewed
+    FROM dashboard_views
+    WHERE viewed_at >= ?
+    GROUP BY dashboard
+    ORDER BY last_viewed DESC
+  `).all(since);
+
+  res.json({ success: true, data: summary });
+});
+
 // ============ Start Server ============
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
