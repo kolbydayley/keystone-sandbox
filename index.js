@@ -297,6 +297,17 @@ app.post('/api/health-data/:pathKey?', (req, res) => {
   }
 });
 
+// GET /api/health-data/dump — download raw SQLite DB file
+app.get('/api/health-data/dump', (req, res) => {
+  const authKey = req.headers['x-api-key'] || req.query.key;
+  if (authKey !== HEALTH_API_KEY) return res.status(401).json({ success: false, error: 'unauthorized' });
+  
+  const dbPath = process.env.DB_PATH || path.join(__dirname, 'data', 'hooks.db');
+  // Checkpoint WAL first so the file is complete
+  try { db.pragma('wal_checkpoint(TRUNCATE)'); } catch(e) {}
+  res.download(dbPath, 'health-data.db');
+});
+
 // GET /api/health-data — query stored health data
 app.get('/api/health-data', (req, res) => {
   const { type = 'summary', days = 7, name } = req.query;
