@@ -14,8 +14,9 @@ app.use(express.static('public'));
 // Raw body capture for webhooks (before express.json)
 app.use('/hook', express.raw({ type: '*/*', limit: '10mb' }));
 
-// JSON for API routes
-app.use('/api', express.json());
+// JSON for API routes — 50MB limit for health data (workout payloads with GPS routes can be large)
+app.use('/api/health-data', express.json({ limit: '50mb' }));
+app.use('/api', express.json({ limit: '1mb' }));
 
 // ============ Health ============
 app.get('/api/health', (req, res) => {
@@ -253,15 +254,23 @@ app.post('/api/health-data/:pathKey?', (req, res) => {
       }
     }
 
-    // Ingest workouts
+    // Ingest workouts (handles both v1 and v2 Health Auto Export format)
     if (data.workouts && Array.isArray(data.workouts)) {
       const wkStmt = db.prepare(`
-        INSERT INTO health_workouts (name, date, start_time, end_time, duration, active_energy, active_energy_unit, total_energy, total_energy_unit, distance, distance_unit, hr_avg, hr_max)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT OR REPLACE INTO health_workouts (name, date, start_time, end_time, duration, active_energy, active_energy_unit, total_energy, total_energy_unit, distance, distance_unit, hr_avg, hr_max, source)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
+
+      // Add unique index for dedup if not exists
+      try { db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_workouts_dedup ON health_workouts(name, start_time)'); } catch(e) {}
 
       for (const w of data.workouts) {
         const date = (w.start || '').split(' ')[0];
+        // v2 format: heartRate.avg.qty / heartRate.max.qty
+        // v1 format: heartRateData[0].Avg / heartRateData[0].Max
+        const hrAvg = w.heartRate?.avg?.qty || w.avgHeartRate?.qty || w.heartRateData?.[0]?.Avg || null;
+        const hrMax = w.heartRate?.max?.qty || w.maxHeartRate?.qty || w.heartRateData?.[0]?.Max || null;
+
         wkStmt.run(
           w.name || null,
           date,
@@ -274,8 +283,9 @@ app.post('/api/health-data/:pathKey?', (req, res) => {
           w.totalEnergy?.units || null,
           w.distance?.qty || null,
           w.distance?.units || null,
-          w.heartRateData?.[0]?.Avg || null,
-          w.heartRateData?.[0]?.Max || null
+          hrAvg,
+          hrMax,
+          w.source || 'Health Auto Export'
         );
         workoutsCount++;
       }
