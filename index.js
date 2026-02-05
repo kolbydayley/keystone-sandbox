@@ -738,7 +738,6 @@ app.post('/api/chat', async (req, res) => {
       const contextInfo = context?.title ? ` (viewing: "${context.title}")` : '';
       const gatewayMessage = `[Dashboard Chat${contextInfo}]\n\nUser: ${message}\n\nKeel (via content digest): ${reply}`;
       
-      console.log('[Chat] Attempting Gateway sync...');
       fetch(`${GATEWAY_URL}/v1/chat/completions`, {
         method: 'POST',
         headers: {
@@ -748,14 +747,9 @@ app.post('/api/chat', async (req, res) => {
         body: JSON.stringify({
           model: 'openclaw:main',
           messages: [{ role: 'user', content: gatewayMessage }],
-          max_tokens: 1 // Just inject into history, don't need a response
+          max_tokens: 1
         })
-      })
-      .then(res => res.json())
-      .then(data => console.log('[Chat] Gateway sync response:', JSON.stringify(data).slice(0, 200)))
-      .catch(err => console.error('[Chat] Gateway sync failed:', err.message));
-    } else {
-      console.log('[Chat] No GATEWAY_TOKEN, skipping sync');
+      }).catch(err => console.error('[Chat] Gateway sync failed:', err.message));
     }
     
     console.log(`[Chat] Response (${reply.length} chars)`);
