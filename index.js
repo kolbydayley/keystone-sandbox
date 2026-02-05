@@ -620,7 +620,7 @@ const chatPool = new Pool({
     'postgresql://postgres:wQQMKpkZSbkgtkFzJCHicFSCLkaOmGSc@nozomi.proxy.rlwy.net:40682/railway',
 });
 
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 
 // Fetch recent content for context
 async function getRecentContent(limit = 20) {
@@ -641,15 +641,15 @@ async function getRecentContent(limit = 20) {
   }
 }
 
-// Call Claude Haiku for instant response
-async function askClaude(question, context, contentItems) {
-  if (!ANTHROPIC_API_KEY) {
+// Call LLM via OpenRouter for instant response
+async function askLLM(question, context, contentItems) {
+  if (!OPENROUTER_API_KEY) {
     return 'Chat API not configured (missing API key)';
   }
   
   // Build content summary
   let contentSummary = contentItems.map(item => 
-    `- "${item.title}" (${item.source}, ${item.source_type})${item.preview ? ': ' + item.preview.slice(0, 150) + '...' : ''}`
+    `- "${item.title}" (${item.source}, ${item.source_type})${item.preview ? ': ' + item.preview.slice(0, 100) + '...' : ''}`
   ).join('\n');
   
   // Build prompt
@@ -668,32 +668,35 @@ Today's date: ${new Date().toLocaleDateString()}`;
   userPrompt += `Question: ${question}`;
   
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01'
+        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'HTTP-Referer': 'https://dashboards-production-dcba.up.railway.app',
+        'X-Title': 'Content Digest Dashboard'
       },
       body: JSON.stringify({
-        model: 'claude-3-5-haiku-latest',
+        model: 'google/gemini-2.0-flash-001',
         max_tokens: 1024,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userPrompt }]
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ]
       })
     });
     
     const data = await response.json();
     
-    if (data.content && data.content[0]) {
-      return data.content[0].text;
+    if (data.choices && data.choices[0]?.message?.content) {
+      return data.choices[0].message.content;
     } else if (data.error) {
-      console.error('Claude error:', data.error);
+      console.error('LLM error:', data.error);
       return `Error: ${data.error.message || 'Unknown error'}`;
     }
     return 'No response generated';
   } catch (err) {
-    console.error('Claude API error:', err.message);
+    console.error('LLM API error:', err.message);
     return `Error: ${err.message}`;
   }
 }
@@ -712,8 +715,8 @@ app.post('/api/chat', async (req, res) => {
     // Fetch recent content for context
     const contentItems = await getRecentContent(25);
     
-    // Get instant response from Claude
-    const response = await askClaude(message.trim(), context, contentItems);
+    // Get instant response from LLM
+    const response = await askLLM(message.trim(), context, contentItems);
     
     // Return immediately
     res.json({ 
