@@ -2,6 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
+const { Pool } = require('pg');
 const db = require('./db');
 
 const app = express();
@@ -613,9 +615,6 @@ app.get('/api/views', (req, res) => {
 });
 
 // ============ Chat Bridge (Dashboard <-> Keel) ============
-const { Pool } = require('pg');
-const crypto = require('crypto');
-
 const chatPool = new Pool({
   connectionString: process.env.CHAT_DATABASE_URL || 
     'postgresql://postgres:wQQMKpkZSbkgtkFzJCHicFSCLkaOmGSc@nozomi.proxy.rlwy.net:40682/railway',
