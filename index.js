@@ -730,13 +730,14 @@ Today: ${new Date().toLocaleDateString()}`;
       if (context.preview) systemContext += `\nPreview: ${context.preview.slice(0, 200)}...`;
     }
     
-    // Call Gateway's OpenAI-compatible endpoint
+    // Call Gateway's OpenAI-compatible endpoint with Gemini Flash for efficiency
     const response = await fetch(`${GATEWAY_URL}/v1/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${GATEWAY_TOKEN}`,
-        'x-openclaw-agent-id': 'main'
+        'x-openclaw-agent-id': 'main',
+        'x-openclaw-model': 'openrouter/google/gemini-2.5-flash-preview'
       },
       body: JSON.stringify({
         model: 'openclaw:main',
