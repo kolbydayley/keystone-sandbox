@@ -701,102 +701,87 @@ Today's date: ${new Date().toLocaleDateString()}`;
   }
 }
 
-// POST /api/chat - Store message for Keel to process
+// ============ Chat Channel (proxies to OpenClaw Gateway) ============
+const GATEWAY_URL = process.env.OPENCLAW_GATEWAY_URL || 'http://clawdbot-railway.railway.internal:6080';
+const GATEWAY_TOKEN = process.env.OPENCLAW_GATEWAY_TOKEN;
+
+// POST /api/chat - Instant chat with Keel via Gateway
 app.post('/api/chat', async (req, res) => {
-  const { message, context } = req.body;
+  const { message, context, sessionId } = req.body;
   
   if (!message?.trim()) {
     return res.status(400).json({ error: 'message required' });
   }
   
-  const ticketId = crypto.randomUUID();
-  console.log(`[Chat ${ticketId}] Received: "${message.slice(0, 50)}..."`);
+  if (!GATEWAY_TOKEN) {
+    return res.status(500).json({ error: 'Gateway not configured' });
+  }
+  
+  console.log(`[Chat] Forwarding to Gateway: "${message.slice(0, 50)}..."`);
   
   try {
-    // Store in database for Keel to process
-    await chatPool.query(
-      `INSERT INTO chat_messages (ticket_id, user_message, context, status, created_at)
-       VALUES ($1, $2, $3, 'pending', NOW())`,
-      [ticketId, message.trim(), context ? JSON.stringify(context) : null]
-    );
+    // Build system context about the content digest
+    let systemContext = `You are Keel responding via the Content Digest Dashboard chat.
+The user is viewing content from their digest. Be helpful and concise.
+Today: ${new Date().toLocaleDateString()}`;
     
-    // Return ticket for polling
-    res.json({ 
-      status: 'pending',
-      ticketId,
-      message: 'Message queued for Keel'
+    if (context?.title) {
+      systemContext += `\n\nUser is viewing: "${context.title}" from ${context.source}`;
+      if (context.preview) systemContext += `\nPreview: ${context.preview.slice(0, 200)}...`;
+    }
+    
+    // Call Gateway's OpenAI-compatible endpoint
+    const response = await fetch(`${GATEWAY_URL}/v1/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${GATEWAY_TOKEN}`,
+        'x-openclaw-agent-id': 'main'
+      },
+      body: JSON.stringify({
+        model: 'openclaw:main',
+        messages: [
+          { role: 'system', content: systemContext },
+          { role: 'user', content: message.trim() }
+        ],
+        // Use session ID for conversation continuity if provided
+        user: sessionId || 'dashboard-chat'
+      })
     });
     
-    console.log(`[Chat ${ticketId}] Stored as pending`);
-  } catch (err) {
-    console.error('Chat store error:', err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// GET /api/chat/poll/:ticketId - Dashboard polls for response
-app.get('/api/chat/poll/:ticketId', async (req, res) => {
-  const { ticketId } = req.params;
-  
-  try {
-    const result = await chatPool.query(
-      `SELECT status, keel_response as response FROM chat_messages WHERE ticket_id = $1`,
-      [ticketId]
-    );
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'ticket not found' });
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[Chat] Gateway error: ${response.status} - ${errorText}`);
+      return res.status(response.status).json({ error: `Gateway error: ${response.status}` });
     }
     
-    const { status, response } = result.rows[0];
-    res.json({ status, response });
+    const data = await response.json();
+    const reply = data.choices?.[0]?.message?.content || 'No response generated';
+    
+    console.log(`[Chat] Response received (${reply.length} chars)`);
+    
+    res.json({
+      status: 'completed',
+      response: reply
+    });
+    
   } catch (err) {
+    console.error('[Chat] Error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
 
-// GET /api/chat/pending - Keel polls for pending messages
-app.get('/api/chat/pending', async (req, res) => {
-  try {
-    const result = await chatPool.query(
-      `SELECT ticket_id, user_message, context, created_at 
-       FROM chat_messages 
-       WHERE status = 'pending' 
-       ORDER BY created_at ASC 
-       LIMIT 10`
-    );
-    
-    res.json({ pending: result.rows });
-  } catch (err) {
-    console.error('Pending fetch error:', err.message);
-    res.json({ pending: [] });
-  }
+// Legacy endpoints (kept for backward compatibility)
+app.get('/api/chat/poll/:ticketId', (req, res) => {
+  res.json({ status: 'completed', response: 'Polling deprecated. Use POST /api/chat for instant responses.' });
 });
 
-// POST /api/chat/respond - Keel posts response
-app.post('/api/chat/respond', async (req, res) => {
-  const { ticketId, response } = req.body;
-  
-  if (!ticketId || !response) {
-    return res.status(400).json({ error: 'ticketId and response required' });
-  }
-  
-  try {
-    const result = await chatPool.query(
-      `UPDATE chat_messages SET status = 'completed', keel_response = $1, responded_at = NOW() 
-       WHERE ticket_id = $2 RETURNING id`,
-      [response, ticketId]
-    );
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'ticket not found' });
-    }
-    
-    console.log(`[Chat ${ticketId}] Response posted`);
-    res.json({ ok: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+app.get('/api/chat/pending', (req, res) => {
+  res.json({ pending: [] });
+});
+
+app.post('/api/chat/respond', (req, res) => {
+  res.json({ ok: true, message: 'Deprecated. Chat now uses direct Gateway proxy.' });
 });
 
 // ============ Start Server ============
