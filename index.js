@@ -754,7 +754,7 @@ Today: ${new Date().toLocaleDateString()}`;
         'X-Title': 'Content Digest Dashboard'
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-preview',
+        model: 'google/gemini-2.0-flash-001',
         max_tokens: 2048,
         messages: [
           { role: 'system', content: systemPrompt },
