@@ -614,13 +614,91 @@ app.get('/api/views', (req, res) => {
   res.json({ success: true, data: summary });
 });
 
-// ============ Chat Bridge (Dashboard <-> Keel) ============
+// ============ Content Chat (Instant LLM responses) ============
 const chatPool = new Pool({
   connectionString: process.env.CHAT_DATABASE_URL || 
     'postgresql://postgres:wQQMKpkZSbkgtkFzJCHicFSCLkaOmGSc@nozomi.proxy.rlwy.net:40682/railway',
 });
 
-// POST /api/chat - Dashboard sends message (no Telegram - isolated session handles it)
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+
+// Fetch recent content for context
+async function getRecentContent(limit = 20) {
+  try {
+    const result = await chatPool.query(`
+      SELECT c.title, c.url, s.title as source, s.type as source_type,
+             LEFT(c.raw_content, 500) as preview
+      FROM content_items c
+      JOIN sources s ON c.source_id = s.id
+      WHERE c.publish_date >= NOW() - INTERVAL '2 days'
+      ORDER BY c.publish_date DESC
+      LIMIT $1
+    `, [limit]);
+    return result.rows;
+  } catch (err) {
+    console.error('Content fetch error:', err.message);
+    return [];
+  }
+}
+
+// Call Claude Haiku for instant response
+async function askClaude(question, context, contentItems) {
+  if (!ANTHROPIC_API_KEY) {
+    return 'Chat API not configured (missing API key)';
+  }
+  
+  // Build content summary
+  let contentSummary = contentItems.map(item => 
+    `- "${item.title}" (${item.source}, ${item.source_type})${item.preview ? ': ' + item.preview.slice(0, 150) + '...' : ''}`
+  ).join('\n');
+  
+  // Build prompt
+  let systemPrompt = `You are Keel, a helpful AI assistant analyzing a content digest. 
+Be concise but insightful. Focus on patterns, key takeaways, and actionable insights.
+Today's date: ${new Date().toLocaleDateString()}`;
+
+  let userPrompt = `Recent content (last 2 days):\n${contentSummary}\n\n`;
+  
+  if (context?.title) {
+    userPrompt += `User is viewing: "${context.title}" from ${context.source}\n`;
+    if (context.preview) userPrompt += `Preview: ${context.preview}\n`;
+    userPrompt += '\n';
+  }
+  
+  userPrompt += `Question: ${question}`;
+  
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-3-5-haiku-latest',
+        max_tokens: 1024,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }]
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (data.content && data.content[0]) {
+      return data.content[0].text;
+    } else if (data.error) {
+      console.error('Claude error:', data.error);
+      return `Error: ${data.error.message || 'Unknown error'}`;
+    }
+    return 'No response generated';
+  } catch (err) {
+    console.error('Claude API error:', err.message);
+    return `Error: ${err.message}`;
+  }
+}
+
+// POST /api/chat - Instant response (no polling needed)
 app.post('/api/chat', async (req, res) => {
   const { message, context } = req.body;
   
@@ -628,70 +706,38 @@ app.post('/api/chat', async (req, res) => {
     return res.status(400).json({ error: 'message required' });
   }
   
-  const ticketId = crypto.randomUUID().slice(0, 8);
+  console.log(`[Chat] Processing: "${message.slice(0, 50)}..."`);
   
   try {
-    await chatPool.query(
-      `INSERT INTO chat_messages (ticket_id, user_message, context, status) 
-       VALUES ($1, $2, $3, 'pending')`,
-      [ticketId, message.trim(), context ? JSON.stringify(context) : null]
-    );
+    // Fetch recent content for context
+    const contentItems = await getRecentContent(25);
     
-    console.log(`[Chat ${ticketId}] New message queued`);
-    res.json({ ticketId, status: 'pending' });
-  } catch (err) {
-    console.error('Chat insert error:', err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// GET /api/chat/poll/:ticketId - Dashboard polls for response
-app.get('/api/chat/poll/:ticketId', async (req, res) => {
-  const { ticketId } = req.params;
-  
-  try {
-    const result = await chatPool.query(
-      'SELECT status, keel_response, created_at FROM chat_messages WHERE ticket_id = $1',
-      [ticketId]
-    );
+    // Get instant response from Claude
+    const response = await askClaude(message.trim(), context, contentItems);
     
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'not found' });
-    }
-    
-    const row = result.rows[0];
-    res.json({
-      ticketId,
-      status: row.status,
-      response: row.keel_response,
-      elapsed: Date.now() - new Date(row.created_at).getTime()
+    // Return immediately
+    res.json({ 
+      status: 'completed',
+      response 
     });
+    
+    console.log(`[Chat] Responded (${response.length} chars)`);
   } catch (err) {
+    console.error('Chat error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
 
-// GET /api/chat/pending - Keel fetches pending messages
-app.get('/api/chat/pending', async (req, res) => {
-  try {
-    const result = await chatPool.query(
-      `SELECT ticket_id, user_message, context, created_at 
-       FROM chat_messages WHERE status = 'pending' ORDER BY created_at ASC`
-    );
-    res.json({
-      pending: result.rows.map(r => ({
-        ticketId: r.ticket_id,
-        message: r.user_message,
-        context: typeof r.context === 'string' ? JSON.parse(r.context) : r.context,
-        createdAt: r.created_at
-      }))
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+// Legacy endpoints for backward compatibility
+app.get('/api/chat/poll/:ticketId', (req, res) => {
+  res.json({ status: 'completed', response: 'This endpoint is deprecated. Use POST /api/chat for instant responses.' });
 });
 
-// POST /api/chat/respond - Keel posts response
+app.get('/api/chat/pending', (req, res) => {
+  res.json({ pending: [] });
+});
+
+// POST /api/chat/respond - Legacy, kept for compatibility
 app.post('/api/chat/respond', async (req, res) => {
   const { ticketId, response } = req.body;
   
