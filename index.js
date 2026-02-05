@@ -612,6 +612,111 @@ app.get('/api/views', (req, res) => {
   res.json({ success: true, data: summary });
 });
 
+// ============ Chat Bridge (Dashboard <-> Keel) ============
+const { Pool } = require('pg');
+const crypto = require('crypto');
+
+const chatPool = new Pool({
+  connectionString: process.env.CHAT_DATABASE_URL || 
+    'postgresql://postgres:wQQMKpkZSbkgtkFzJCHicFSCLkaOmGSc@nozomi.proxy.rlwy.net:40682/railway',
+});
+
+// POST /api/chat - Dashboard sends message
+app.post('/api/chat', async (req, res) => {
+  const { message, context } = req.body;
+  
+  if (!message?.trim()) {
+    return res.status(400).json({ error: 'message required' });
+  }
+  
+  const ticketId = crypto.randomUUID().slice(0, 8);
+  
+  try {
+    await chatPool.query(
+      `INSERT INTO chat_messages (ticket_id, user_message, context, status) 
+       VALUES ($1, $2, $3, 'pending')`,
+      [ticketId, message.trim(), context ? JSON.stringify(context) : null]
+    );
+    console.log(`[Chat ${ticketId}] New message`);
+    res.json({ ticketId, status: 'pending' });
+  } catch (err) {
+    console.error('Chat insert error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/chat/poll/:ticketId - Dashboard polls for response
+app.get('/api/chat/poll/:ticketId', async (req, res) => {
+  const { ticketId } = req.params;
+  
+  try {
+    const result = await chatPool.query(
+      'SELECT status, keel_response, created_at FROM chat_messages WHERE ticket_id = $1',
+      [ticketId]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'not found' });
+    }
+    
+    const row = result.rows[0];
+    res.json({
+      ticketId,
+      status: row.status,
+      response: row.keel_response,
+      elapsed: Date.now() - new Date(row.created_at).getTime()
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/chat/pending - Keel fetches pending messages
+app.get('/api/chat/pending', async (req, res) => {
+  try {
+    const result = await chatPool.query(
+      `SELECT ticket_id, user_message, context, created_at 
+       FROM chat_messages WHERE status = 'pending' ORDER BY created_at ASC`
+    );
+    res.json({
+      pending: result.rows.map(r => ({
+        ticketId: r.ticket_id,
+        message: r.user_message,
+        context: r.context ? JSON.parse(r.context) : null,
+        createdAt: r.created_at
+      }))
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/chat/respond - Keel posts response
+app.post('/api/chat/respond', async (req, res) => {
+  const { ticketId, response } = req.body;
+  
+  if (!ticketId || !response) {
+    return res.status(400).json({ error: 'ticketId and response required' });
+  }
+  
+  try {
+    const result = await chatPool.query(
+      `UPDATE chat_messages SET status = 'completed', keel_response = $1, responded_at = NOW() 
+       WHERE ticket_id = $2 RETURNING id`,
+      [response, ticketId]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'ticket not found' });
+    }
+    
+    console.log(`[Chat ${ticketId}] Response posted`);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ============ Start Server ============
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
