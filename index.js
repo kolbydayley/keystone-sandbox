@@ -705,7 +705,7 @@ Today's date: ${new Date().toLocaleDateString()}`;
 const GATEWAY_URL = process.env.OPENCLAW_GATEWAY_URL || 'https://clawdbot-railway-production.up.railway.app';
 const GATEWAY_TOKEN = process.env.OPENCLAW_GATEWAY_TOKEN;
 
-// POST /api/chat - Routes to Keel via Gateway
+// POST /api/chat - Routes to Keel via Gateway (minimal context)
 app.post('/api/chat', async (req, res) => {
   const { message, context, sessionId } = req.body;
   
@@ -720,23 +720,12 @@ app.post('/api/chat', async (req, res) => {
   console.log(`[Chat] Routing to Gateway: "${message.slice(0, 50)}..."`);
   
   try {
-    // Fetch recent content for context
-    const contentItems = await getRecentContent(20);
-    
-    // Build content summary for context
-    const contentSummary = contentItems.slice(0, 15).map(item => 
-      `- "${item.title}" (${item.source})`
-    ).join('\n');
-    
-    // Build the message with context
-    let fullMessage = `[Dashboard Chat - Content Digest]\n\n`;
-    if (contentSummary) {
-      fullMessage += `Recent content:\n${contentSummary}\n\n`;
-    }
+    // Build MINIMAL message - just enough for me to orchestrate
+    let minimalMessage = `[Dashboard Chat]`;
     if (context?.title) {
-      fullMessage += `Currently viewing: "${context.title}" from ${context.source}\n\n`;
+      minimalMessage += ` (viewing: "${context.title}")`;
     }
-    fullMessage += `Question: ${message.trim()}`;
+    minimalMessage += `\n\n${message.trim()}`;
     
     // Call Gateway's OpenAI-compatible endpoint
     const response = await fetch(`${GATEWAY_URL}/v1/chat/completions`, {
@@ -744,12 +733,12 @@ app.post('/api/chat', async (req, res) => {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${GATEWAY_TOKEN}`,
-        'x-openclaw-agent-id': 'main'
+        'x-openclaw-agent-id': 'dashboard'
       },
       body: JSON.stringify({
         model: 'openclaw:main',
         messages: [
-          { role: 'user', content: fullMessage }
+          { role: 'user', content: minimalMessage }
         ],
         user: sessionId || 'dashboard-chat'
       })
