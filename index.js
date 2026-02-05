@@ -702,7 +702,7 @@ Today's date: ${new Date().toLocaleDateString()}`;
 }
 
 // ============ Chat Channel (routes through OpenClaw Gateway) ============
-const GATEWAY_URL = process.env.OPENCLAW_GATEWAY_URL || 'http://clawdbot-railway.railway.internal:6080';
+const GATEWAY_URL = process.env.OPENCLAW_GATEWAY_URL || 'https://clawdbot-railway-production.up.railway.app';
 const GATEWAY_TOKEN = process.env.OPENCLAW_GATEWAY_TOKEN;
 
 // POST /api/chat - Routes to Keel via Gateway
