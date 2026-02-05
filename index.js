@@ -701,7 +701,7 @@ Today's date: ${new Date().toLocaleDateString()}`;
   }
 }
 
-// POST /api/chat - Instant response (no polling needed)
+// POST /api/chat - Store message for Keel to process
 app.post('/api/chat', async (req, res) => {
   const { message, context } = req.body;
   
@@ -709,38 +709,71 @@ app.post('/api/chat', async (req, res) => {
     return res.status(400).json({ error: 'message required' });
   }
   
-  console.log(`[Chat] Processing: "${message.slice(0, 50)}..."`);
+  const ticketId = crypto.randomUUID();
+  console.log(`[Chat ${ticketId}] Received: "${message.slice(0, 50)}..."`);
   
   try {
-    // Fetch recent content for context
-    const contentItems = await getRecentContent(25);
+    // Store in database for Keel to process
+    await chatPool.query(
+      `INSERT INTO chat_messages (ticket_id, user_message, context, status, created_at)
+       VALUES ($1, $2, $3, 'pending', NOW())`,
+      [ticketId, message.trim(), context ? JSON.stringify(context) : null]
+    );
     
-    // Get instant response from LLM
-    const response = await askLLM(message.trim(), context, contentItems);
-    
-    // Return immediately
+    // Return ticket for polling
     res.json({ 
-      status: 'completed',
-      response 
+      status: 'pending',
+      ticketId,
+      message: 'Message queued for Keel'
     });
     
-    console.log(`[Chat] Responded (${response.length} chars)`);
+    console.log(`[Chat ${ticketId}] Stored as pending`);
   } catch (err) {
-    console.error('Chat error:', err.message);
+    console.error('Chat store error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Legacy endpoints for backward compatibility
-app.get('/api/chat/poll/:ticketId', (req, res) => {
-  res.json({ status: 'completed', response: 'This endpoint is deprecated. Use POST /api/chat for instant responses.' });
+// GET /api/chat/poll/:ticketId - Dashboard polls for response
+app.get('/api/chat/poll/:ticketId', async (req, res) => {
+  const { ticketId } = req.params;
+  
+  try {
+    const result = await chatPool.query(
+      `SELECT status, keel_response as response FROM chat_messages WHERE ticket_id = $1`,
+      [ticketId]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'ticket not found' });
+    }
+    
+    const { status, response } = result.rows[0];
+    res.json({ status, response });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.get('/api/chat/pending', (req, res) => {
-  res.json({ pending: [] });
+// GET /api/chat/pending - Keel polls for pending messages
+app.get('/api/chat/pending', async (req, res) => {
+  try {
+    const result = await chatPool.query(
+      `SELECT ticket_id, user_message, context, created_at 
+       FROM chat_messages 
+       WHERE status = 'pending' 
+       ORDER BY created_at ASC 
+       LIMIT 10`
+    );
+    
+    res.json({ pending: result.rows });
+  } catch (err) {
+    console.error('Pending fetch error:', err.message);
+    res.json({ pending: [] });
+  }
 });
 
-// POST /api/chat/respond - Legacy, kept for compatibility
+// POST /api/chat/respond - Keel posts response
 app.post('/api/chat/respond', async (req, res) => {
   const { ticketId, response } = req.body;
   
