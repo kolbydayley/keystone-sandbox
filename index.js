@@ -705,7 +705,7 @@ Today's date: ${new Date().toLocaleDateString()}`;
 
 // POST /api/chat - Answers questions about content using LLM with full context
 app.post('/api/chat', async (req, res) => {
-  const { message, context } = req.body;
+  const { message, context, sessionId } = req.body;
   
   if (!message?.trim()) {
     return res.status(400).json({ error: 'message required' });
@@ -721,6 +721,16 @@ app.post('/api/chat', async (req, res) => {
     // Call LLM with content context
     const reply = await askLLM(message, context, contentItems);
     
+    // Store chat in database for Keel visibility
+    try {
+      db.prepare(`
+        INSERT INTO chat_logs (session_id, message, response, context_title, content_items_count)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(sessionId || null, message, reply, context?.title || null, contentItems.length);
+    } catch (logErr) {
+      console.error('[Chat] Failed to log chat:', logErr.message);
+    }
+    
     console.log(`[Chat] Response (${reply.length} chars)`);
     res.json({ status: 'completed', response: reply });
     
@@ -728,6 +738,25 @@ app.post('/api/chat', async (req, res) => {
     console.error('[Chat] Error:', err.message);
     res.status(500).json({ error: err.message });
   }
+});
+
+// GET /api/chat/history - Retrieve recent chat logs (for Keel)
+app.get('/api/chat/history', (req, res) => {
+  const authKey = req.headers['x-api-key'] || req.query.key;
+  if (authKey !== HEALTH_API_KEY) return res.status(401).json({ success: false, error: 'unauthorized' });
+
+  const { limit = 50, days = 7 } = req.query;
+  const since = new Date(Date.now() - days * 86400000).toISOString();
+
+  const chats = db.prepare(`
+    SELECT id, session_id, message, response, context_title, content_items_count, created_at
+    FROM chat_logs
+    WHERE created_at >= ?
+    ORDER BY created_at DESC
+    LIMIT ?
+  `).all(since, Number(limit));
+
+  res.json({ success: true, data: chats, count: chats.length });
 });
 
 // Legacy endpoints (kept for backward compatibility)

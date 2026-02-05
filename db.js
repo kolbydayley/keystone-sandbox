@@ -107,6 +107,20 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_dashboard_views_dashboard ON dashboard_views(dashboard);
   CREATE INDEX IF NOT EXISTS idx_dashboard_views_viewed_at ON dashboard_views(viewed_at DESC);
+
+  -- Dashboard chat logs (for Keel visibility)
+  CREATE TABLE IF NOT EXISTS chat_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT,
+    message TEXT NOT NULL,
+    response TEXT,
+    context_title TEXT,
+    content_items_count INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_chat_logs_created_at ON chat_logs(created_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_chat_logs_session ON chat_logs(session_id);
 `);
 
 module.exports = db;
