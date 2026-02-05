@@ -620,33 +620,7 @@ const chatPool = new Pool({
     'postgresql://postgres:wQQMKpkZSbkgtkFzJCHicFSCLkaOmGSc@nozomi.proxy.rlwy.net:40682/railway',
 });
 
-// Telegram config for instant message delivery
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '8504885160';
-
-async function sendToTelegram(ticketId, message, context) {
-  if (!TELEGRAM_BOT_TOKEN) return;
-  
-  let text = `📱 [Dashboard Chat - ${ticketId}]\n\n`;
-  if (context?.title) {
-    text += `📎 Re: "${context.title}" (${context.source})\n`;
-    if (context.url) text += `${context.url}\n`;
-    text += '\n';
-  }
-  text += message;
-  
-  try {
-    await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text })
-    });
-  } catch (err) {
-    console.error('Telegram send error:', err.message);
-  }
-}
-
-// POST /api/chat - Dashboard sends message
+// POST /api/chat - Dashboard sends message (no Telegram - isolated session handles it)
 app.post('/api/chat', async (req, res) => {
   const { message, context } = req.body;
   
@@ -657,17 +631,13 @@ app.post('/api/chat', async (req, res) => {
   const ticketId = crypto.randomUUID().slice(0, 8);
   
   try {
-    // Store in database
     await chatPool.query(
       `INSERT INTO chat_messages (ticket_id, user_message, context, status) 
        VALUES ($1, $2, $3, 'pending')`,
       [ticketId, message.trim(), context ? JSON.stringify(context) : null]
     );
     
-    // Send to Telegram for instant delivery
-    sendToTelegram(ticketId, message.trim(), context);
-    
-    console.log(`[Chat ${ticketId}] New message (sent to Telegram)`);
+    console.log(`[Chat ${ticketId}] New message queued`);
     res.json({ ticketId, status: 'pending' });
   } catch (err) {
     console.error('Chat insert error:', err.message);
