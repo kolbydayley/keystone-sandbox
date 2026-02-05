@@ -701,70 +701,80 @@ Today's date: ${new Date().toLocaleDateString()}`;
   }
 }
 
-// ============ Chat Channel (proxies to OpenClaw Gateway) ============
-const GATEWAY_URL = process.env.OPENCLAW_GATEWAY_URL || 'http://clawdbot-railway.railway.internal:6080';
-const GATEWAY_TOKEN = process.env.OPENCLAW_GATEWAY_TOKEN;
+// ============ Chat Channel (Gemini Flash for content analysis) ============
 
-// POST /api/chat - Instant chat with Keel via Gateway
+// POST /api/chat - Content digest chat with Gemini Flash
 app.post('/api/chat', async (req, res) => {
-  const { message, context, sessionId } = req.body;
+  const { message, context } = req.body;
   
   if (!message?.trim()) {
     return res.status(400).json({ error: 'message required' });
   }
   
-  if (!GATEWAY_TOKEN) {
-    return res.status(500).json({ error: 'Gateway not configured' });
+  if (!OPENROUTER_API_KEY) {
+    return res.status(500).json({ error: 'API not configured' });
   }
   
-  console.log(`[Chat] Forwarding to Gateway: "${message.slice(0, 50)}..."`);
+  console.log(`[Chat] Processing: "${message.slice(0, 50)}..."`);
   
   try {
-    // Build system context about the content digest
-    let systemContext = `You are Keel responding via the Content Digest Dashboard chat.
-The user is viewing content from their digest. Be helpful and concise.
+    // Fetch recent content for context
+    const contentItems = await getRecentContent(30);
+    
+    // Build content summary
+    const contentSummary = contentItems.map(item => 
+      `- "${item.title}" (${item.source}, ${item.source_type})`
+    ).join('\n');
+    
+    // System prompt
+    const systemPrompt = `You are Keel, Kolby's AI assistant, responding via the Content Digest Dashboard.
+Be concise, insightful, and helpful. Focus on patterns, key takeaways, and actionable insights.
+Don't be overly formal — you're a trusted assistant, not a corporate bot.
 Today: ${new Date().toLocaleDateString()}`;
     
-    if (context?.title) {
-      systemContext += `\n\nUser is viewing: "${context.title}" from ${context.source}`;
-      if (context.preview) systemContext += `\nPreview: ${context.preview.slice(0, 200)}...`;
+    // Build user context
+    let userPrompt = '';
+    if (contentSummary) {
+      userPrompt += `Recent content (last 2 days):\n${contentSummary}\n\n`;
     }
+    if (context?.title) {
+      userPrompt += `Currently viewing: "${context.title}" from ${context.source}\n`;
+      if (context.preview) userPrompt += `Preview: ${context.preview.slice(0, 300)}...\n`;
+      userPrompt += '\n';
+    }
+    userPrompt += `Question: ${message.trim()}`;
     
-    // Call Gateway's OpenAI-compatible endpoint with Gemini Flash for efficiency
-    const response = await fetch(`${GATEWAY_URL}/v1/chat/completions`, {
+    // Call Gemini Flash via OpenRouter
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${GATEWAY_TOKEN}`,
-        'x-openclaw-agent-id': 'main',
-        'x-openclaw-model': 'openrouter/google/gemini-2.5-flash-preview'
+        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'HTTP-Referer': 'https://dashboards-production-dcba.up.railway.app',
+        'X-Title': 'Content Digest Dashboard'
       },
       body: JSON.stringify({
-        model: 'openclaw:main',
+        model: 'google/gemini-2.5-flash-preview',
+        max_tokens: 2048,
         messages: [
-          { role: 'system', content: systemContext },
-          { role: 'user', content: message.trim() }
-        ],
-        // Use session ID for conversation continuity if provided
-        user: sessionId || 'dashboard-chat'
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ]
       })
     });
     
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[Chat] Gateway error: ${response.status} - ${errorText}`);
-      return res.status(response.status).json({ error: `Gateway error: ${response.status}` });
-    }
-    
     const data = await response.json();
-    const reply = data.choices?.[0]?.message?.content || 'No response generated';
     
-    console.log(`[Chat] Response received (${reply.length} chars)`);
-    
-    res.json({
-      status: 'completed',
-      response: reply
-    });
+    if (data.choices?.[0]?.message?.content) {
+      const reply = data.choices[0].message.content;
+      console.log(`[Chat] Response (${reply.length} chars)`);
+      res.json({ status: 'completed', response: reply });
+    } else if (data.error) {
+      console.error('[Chat] API error:', data.error);
+      res.status(500).json({ error: data.error.message || 'API error' });
+    } else {
+      res.status(500).json({ error: 'No response generated' });
+    }
     
   } catch (err) {
     console.error('[Chat] Error:', err.message);
