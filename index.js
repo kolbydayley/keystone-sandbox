@@ -701,7 +701,9 @@ Today's date: ${new Date().toLocaleDateString()}`;
   }
 }
 
-// ============ Chat Channel (uses askLLM with content context) ============
+// ============ Chat Channel (uses askLLM with content context + Gateway sync) ============
+const GATEWAY_URL = process.env.OPENCLAW_GATEWAY_URL || 'https://clawdbot-railway-production.up.railway.app';
+const GATEWAY_TOKEN = process.env.OPENCLAW_GATEWAY_TOKEN;
 
 // POST /api/chat - Answers questions about content using LLM with full context
 app.post('/api/chat', async (req, res) => {
@@ -721,7 +723,7 @@ app.post('/api/chat', async (req, res) => {
     // Call LLM with content context
     const reply = await askLLM(message, context, contentItems);
     
-    // Store chat in database for Keel visibility
+    // Store chat in database for backup/querying
     try {
       db.prepare(`
         INSERT INTO chat_logs (session_id, message, response, context_title, content_items_count)
@@ -729,6 +731,25 @@ app.post('/api/chat', async (req, res) => {
       `).run(sessionId || null, message, reply, context?.title || null, contentItems.length);
     } catch (logErr) {
       console.error('[Chat] Failed to log chat:', logErr.message);
+    }
+    
+    // Sync to Gateway session (async, don't block response)
+    if (GATEWAY_TOKEN) {
+      const contextInfo = context?.title ? ` (viewing: "${context.title}")` : '';
+      const gatewayMessage = `[Dashboard Chat${contextInfo}]\n\nUser: ${message}\n\nKeel (via content digest): ${reply}`;
+      
+      fetch(`${GATEWAY_URL}/v1/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${GATEWAY_TOKEN}`
+        },
+        body: JSON.stringify({
+          model: 'openclaw:main',
+          messages: [{ role: 'user', content: gatewayMessage }],
+          max_tokens: 1 // Just inject into history, don't need a response
+        })
+      }).catch(err => console.error('[Chat] Gateway sync failed:', err.message));
     }
     
     console.log(`[Chat] Response (${reply.length} chars)`);
