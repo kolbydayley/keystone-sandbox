@@ -681,7 +681,7 @@ app.get('/api/chat/pending', async (req, res) => {
       pending: result.rows.map(r => ({
         ticketId: r.ticket_id,
         message: r.user_message,
-        context: r.context ? JSON.parse(r.context) : null,
+        context: typeof r.context === 'string' ? JSON.parse(r.context) : r.context,
         createdAt: r.created_at
       }))
     });
