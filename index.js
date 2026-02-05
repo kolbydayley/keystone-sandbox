@@ -701,57 +701,25 @@ Today's date: ${new Date().toLocaleDateString()}`;
   }
 }
 
-// ============ Chat Channel (routes through OpenClaw Gateway) ============
-const GATEWAY_URL = process.env.OPENCLAW_GATEWAY_URL || 'https://clawdbot-railway-production.up.railway.app';
-const GATEWAY_TOKEN = process.env.OPENCLAW_GATEWAY_TOKEN;
+// ============ Chat Channel (uses askLLM with content context) ============
 
-// POST /api/chat - Routes to Keel via Gateway (minimal context)
+// POST /api/chat - Answers questions about content using LLM with full context
 app.post('/api/chat', async (req, res) => {
-  const { message, context, sessionId } = req.body;
+  const { message, context } = req.body;
   
   if (!message?.trim()) {
     return res.status(400).json({ error: 'message required' });
   }
   
-  if (!GATEWAY_TOKEN) {
-    return res.status(500).json({ error: 'Gateway not configured (missing OPENCLAW_GATEWAY_TOKEN)' });
-  }
-  
-  console.log(`[Chat] Routing to Gateway: "${message.slice(0, 50)}..."`);
+  console.log(`[Chat] Question: "${message.slice(0, 50)}..."`);
   
   try {
-    // Build MINIMAL message - just enough for me to orchestrate
-    let minimalMessage = `[Dashboard Chat]`;
-    if (context?.title) {
-      minimalMessage += ` (viewing: "${context.title}")`;
-    }
-    minimalMessage += `\n\n${message.trim()}`;
+    // Fetch recent content for context
+    const contentItems = await getRecentContent(30);
+    console.log(`[Chat] Fetched ${contentItems.length} content items for context`);
     
-    // Call Gateway's OpenAI-compatible endpoint
-    const response = await fetch(`${GATEWAY_URL}/v1/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${GATEWAY_TOKEN}`,
-        'x-openclaw-agent-id': 'dashboard'
-      },
-      body: JSON.stringify({
-        model: 'openclaw:main',
-        messages: [
-          { role: 'user', content: minimalMessage }
-        ],
-        user: sessionId || 'dashboard-chat'
-      })
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[Chat] Gateway error: ${response.status} - ${errorText}`);
-      return res.status(response.status).json({ error: `Gateway error: ${response.status}` });
-    }
-    
-    const data = await response.json();
-    const reply = data.choices?.[0]?.message?.content || 'No response generated';
+    // Call LLM with content context
+    const reply = await askLLM(message, context, contentItems);
     
     console.log(`[Chat] Response (${reply.length} chars)`);
     res.json({ status: 'completed', response: reply });
