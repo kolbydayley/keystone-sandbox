@@ -186,7 +186,11 @@ function buildPayloadMeta(payload) {
           w?.heartRateSamples ||
           w?.heartRate?.samples ||
           w?.heartRate?.data ||
-          (Array.isArray(w?.heartRateData) && (w.heartRateData[0]?.data || w.heartRateData[0]?.samples))
+          (Array.isArray(w?.heartRateData) && w.heartRateData.length && (
+            w.heartRateData[0]?.Avg !== undefined ||
+            w.heartRateData[0]?.Min !== undefined ||
+            w.heartRateData[0]?.Max !== undefined
+          ))
         );
         if (hasSamples) workoutsWithSamples++;
       }
@@ -324,8 +328,8 @@ app.post('/api/health-data/:pathKey?', (req, res) => {
     // Ingest workouts (handles both v1 and v2 Health Auto Export format)
     if (data.workouts && Array.isArray(data.workouts)) {
       const wkStmt = db.prepare(`
-        INSERT OR REPLACE INTO health_workouts (name, date, start_time, end_time, duration, active_energy, active_energy_unit, total_energy, total_energy_unit, distance, distance_unit, hr_avg, hr_max, source)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT OR REPLACE INTO health_workouts (external_id, name, date, start_time, end_time, duration, active_energy, active_energy_unit, total_energy, total_energy_unit, distance, distance_unit, hr_avg, hr_max, source)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       const wkHrStmt = db.prepare(`
@@ -346,6 +350,7 @@ app.post('/api/health-data/:pathKey?', (req, res) => {
         const hrMax = w.heartRate?.max?.qty || w.maxHeartRate?.qty || w.heartRateData?.[0]?.Max || null;
 
         wkStmt.run(
+          w.id || null,
           w.name || null,
           date,
           startTime,
@@ -362,6 +367,18 @@ app.post('/api/health-data/:pathKey?', (req, res) => {
           w.source || 'Health Auto Export'
         );
         workoutsCount++;
+
+        // Dedup: if start_time differs by a few seconds across re-sends, collapse by minute.
+        if (startTime) {
+          try {
+            db.prepare(
+              `DELETE FROM health_workouts
+               WHERE name = ?
+                 AND SUBSTR(start_time, 1, 16) = SUBSTR(?, 1, 16)
+                 AND start_time <> ?`
+            ).run(w.name || null, startTime, startTime);
+          } catch (e) {}
+        }
 
         // Persist minute-level HR series if present
         if (startTime && Array.isArray(w.heartRateData) && w.heartRateData.length) {

@@ -16,6 +16,11 @@ const db = new Database(dbPath);
 // Enable WAL mode for better concurrent access
 db.pragma('journal_mode = WAL');
 
+// --- Lightweight migrations (idempotent) ---
+// Add external_id to health_workouts if the table was created before this column existed.
+try { db.exec("ALTER TABLE health_workouts ADD COLUMN external_id TEXT"); } catch (e) {}
+
+
 // Create tables
 db.exec(`
   CREATE TABLE IF NOT EXISTS hooks (
@@ -66,6 +71,7 @@ db.exec(`
 
   CREATE TABLE IF NOT EXISTS health_workouts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    external_id TEXT,
     name TEXT,
     date TEXT NOT NULL,
     start_time TEXT,
@@ -124,6 +130,7 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_health_metrics_name_date ON health_metrics(name, date);
   CREATE INDEX IF NOT EXISTS idx_health_sleep_date ON health_sleep(date);
   CREATE INDEX IF NOT EXISTS idx_health_workouts_date ON health_workouts(date);
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_health_workouts_external_id ON health_workouts(external_id);
 
   -- Dashboard view tracking
   CREATE TABLE IF NOT EXISTS dashboard_views (
