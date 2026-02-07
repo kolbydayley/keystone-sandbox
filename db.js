@@ -92,6 +92,17 @@ db.exec(`
     payload_size INTEGER DEFAULT 0
   );
 
+  -- Optional: raw payload capture for debugging minute-level samples.
+  -- Only populated when capture is enabled (query param/header/env).
+  CREATE TABLE IF NOT EXISTS health_payloads (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    received_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    source TEXT DEFAULT 'health_auto_export',
+    meta TEXT,
+    payload_size INTEGER DEFAULT 0,
+    payload_json TEXT
+  );
+
   CREATE INDEX IF NOT EXISTS idx_health_metrics_name_date ON health_metrics(name, date);
   CREATE INDEX IF NOT EXISTS idx_health_sleep_date ON health_sleep(date);
   CREATE INDEX IF NOT EXISTS idx_health_workouts_date ON health_workouts(date);

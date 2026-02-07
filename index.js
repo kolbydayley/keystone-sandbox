@@ -164,6 +164,61 @@ app.delete('/api/hooks/channel/:channel', (req, res) => {
 // ============ Health Data Ingestion (Health Auto Export) ============
 const HEALTH_API_KEY = process.env.HEALTH_API_KEY || 'keystone-health-2026';
 
+function shouldCaptureHealthPayload(req) {
+  if (process.env.HEALTH_CAPTURE_ALL === 'true') return true;
+  const q = String(req.query.capture || req.query.debug || '').toLowerCase();
+  if (q === '1' || q === 'true' || q === 'yes') return true;
+  const h = String(req.headers['x-health-capture'] || '').toLowerCase();
+  return h === '1' || h === 'true' || h === 'yes';
+}
+
+function buildPayloadMeta(payload) {
+  try {
+    const data = payload?.data || {};
+    const metricsN = Array.isArray(data.metrics) ? data.metrics.length : 0;
+    const workoutsN = Array.isArray(data.workouts) ? data.workouts.length : 0;
+
+    // Try to detect if workouts include HR samples (exact shape varies by export version)
+    let workoutsWithSamples = 0;
+    if (Array.isArray(data.workouts)) {
+      for (const w of data.workouts) {
+        const hasSamples = Boolean(
+          w?.heartRateSamples ||
+          w?.heartRate?.samples ||
+          w?.heartRate?.data ||
+          (Array.isArray(w?.heartRateData) && (w.heartRateData[0]?.data || w.heartRateData[0]?.samples))
+        );
+        if (hasSamples) workoutsWithSamples++;
+      }
+    }
+
+    return {
+      topKeys: Object.keys(payload || {}).slice(0, 20),
+      dataKeys: Object.keys(data || {}).slice(0, 50),
+      metricsN,
+      workoutsN,
+      workoutsWithSamples,
+    };
+  } catch (e) {
+    return { error: String(e?.message || e) };
+  }
+}
+
+function captureHealthPayload({ db, payload, meta }) {
+  const payloadStr = JSON.stringify(payload);
+  const payloadSize = payloadStr.length;
+  db.prepare(
+    `INSERT INTO health_payloads (source, meta, payload_size, payload_json)
+     VALUES (?, ?, ?, ?)`
+  ).run('health_auto_export', JSON.stringify(meta || null), payloadSize, payloadStr);
+
+  // Retention: keep last 10 captured payloads
+  db.exec(`
+    DELETE FROM health_payloads
+    WHERE id NOT IN (SELECT id FROM health_payloads ORDER BY id DESC LIMIT 10)
+  `);
+}
+
 // POST /api/health-data — receive Health Auto Export JSON payloads
 // Also accept /api/health-data/:key for apps that strip query params
 app.post('/api/health-data/:pathKey?', (req, res) => {
@@ -175,6 +230,16 @@ app.post('/api/health-data/:pathKey?', (req, res) => {
 
   try {
     const payload = req.body;
+    const meta = buildPayloadMeta(payload);
+
+    // Optional raw payload capture for debugging minute-level samples
+    if (shouldCaptureHealthPayload(req)) {
+      try {
+        captureHealthPayload({ db, payload, meta });
+      } catch (e) {
+        console.error('Health payload capture failed:', e);
+      }
+    }
     if (!payload || !payload.data) {
       return res.status(400).json({ success: false, error: 'Invalid payload — expected { data: { metrics, workouts } }' });
     }
@@ -367,6 +432,25 @@ app.get('/api/health-data', (req, res) => {
 app.get('/api/health-data/sync-log', (req, res) => {
   const rows = db.prepare(`SELECT * FROM health_sync_log ORDER BY id DESC LIMIT 20`).all();
   res.json({ success: true, data: rows });
+});
+
+// GET /api/health-data/payloads — list captured raw payloads (debug only)
+app.get('/api/health-data/payloads', (req, res) => {
+  const authKey = req.headers['x-api-key'] || req.query.key;
+  if (authKey !== HEALTH_API_KEY) return res.status(401).json({ success: false, error: 'unauthorized' });
+  const limit = Math.min(parseInt(req.query.limit || '5', 10) || 5, 20);
+  const rows = db.prepare(`SELECT id, received_at, source, payload_size, meta FROM health_payloads ORDER BY id DESC LIMIT ?`).all(limit);
+  res.json({ success: true, data: rows.map(r => ({...r, meta: r.meta ? JSON.parse(r.meta) : null })) });
+});
+
+// GET /api/health-data/payloads/:id — fetch a captured raw payload (debug only)
+app.get('/api/health-data/payloads/:id', (req, res) => {
+  const authKey = req.headers['x-api-key'] || req.query.key;
+  if (authKey !== HEALTH_API_KEY) return res.status(401).json({ success: false, error: 'unauthorized' });
+  const id = parseInt(req.params.id, 10);
+  const row = db.prepare(`SELECT id, received_at, source, payload_size, meta, payload_json FROM health_payloads WHERE id = ?`).get(id);
+  if (!row) return res.status(404).json({ success: false, error: 'not found' });
+  res.json({ success: true, data: { ...row, meta: row.meta ? JSON.parse(row.meta) : null } });
 });
 
 // ============ Research Docs API ============
