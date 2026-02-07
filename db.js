@@ -103,6 +103,24 @@ db.exec(`
     payload_json TEXT
   );
 
+  -- Minute-level (or sample-level) workout heart rate series.
+  -- Populated from Health Auto Export's workout.heartRateData (when present).
+  CREATE TABLE IF NOT EXISTS health_workout_hr (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workout_start_time TEXT NOT NULL,
+    ts TEXT NOT NULL,
+    hr_avg REAL,
+    hr_min REAL,
+    hr_max REAL,
+    units TEXT,
+    source TEXT DEFAULT 'health_auto_export',
+    ingested_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(workout_start_time, ts)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_health_workout_hr_start ON health_workout_hr(workout_start_time);
+  CREATE INDEX IF NOT EXISTS idx_health_workout_hr_ts ON health_workout_hr(ts);
+
   CREATE INDEX IF NOT EXISTS idx_health_metrics_name_date ON health_metrics(name, date);
   CREATE INDEX IF NOT EXISTS idx_health_sleep_date ON health_sleep(date);
   CREATE INDEX IF NOT EXISTS idx_health_workouts_date ON health_workouts(date);

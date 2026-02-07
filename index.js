@@ -328,20 +328,27 @@ app.post('/api/health-data/:pathKey?', (req, res) => {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
+      const wkHrStmt = db.prepare(`
+        INSERT OR REPLACE INTO health_workout_hr (workout_start_time, ts, hr_avg, hr_min, hr_max, units, source)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `);
+
       // Add unique index for dedup if not exists
       try { db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_workouts_dedup ON health_workouts(name, start_time)'); } catch(e) {}
 
       for (const w of data.workouts) {
-        const date = (w.start || '').split(' ')[0];
-        // v2 format: heartRate.avg.qty / heartRate.max.qty
-        // v1 format: heartRateData[0].Avg / heartRateData[0].Max
+        const startTime = w.start || null;
+        const date = (startTime || '').split(' ')[0];
+
+        // v2 format: heartRate.avg.qty / heartRate.max.qty / heartRate.min.qty
+        // v1 format: heartRateData[n].Avg / .Max / .Min (often minute-level series)
         const hrAvg = w.heartRate?.avg?.qty || w.avgHeartRate?.qty || w.heartRateData?.[0]?.Avg || null;
         const hrMax = w.heartRate?.max?.qty || w.maxHeartRate?.qty || w.heartRateData?.[0]?.Max || null;
 
         wkStmt.run(
           w.name || null,
           date,
-          w.start || null,
+          startTime,
           w.end || null,
           w.duration || null,
           w.activeEnergyBurned?.qty || null,
@@ -355,6 +362,18 @@ app.post('/api/health-data/:pathKey?', (req, res) => {
           w.source || 'Health Auto Export'
         );
         workoutsCount++;
+
+        // Persist minute-level HR series if present
+        if (startTime && Array.isArray(w.heartRateData) && w.heartRateData.length) {
+          for (const entry of w.heartRateData) {
+            if (!entry?.date) continue;
+            const units = entry.units || null;
+            const avg = entry.Avg ?? null;
+            const mn = entry.Min ?? null;
+            const mx = entry.Max ?? null;
+            wkHrStmt.run(startTime, entry.date, avg, mn, mx, units, w.source || 'Health Auto Export');
+          }
+        }
       }
     }
 
