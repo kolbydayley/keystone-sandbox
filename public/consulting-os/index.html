@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Consulting OS</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <h1>Consulting OS</h1>
+    <p>Conflict-safe, high-ticket AI consulting operating system</p>
+    <div class="header-actions">
+      <button id="exportBtn">Export Data</button>
+      <label class="file-label">Import Data <input id="importInput" type="file" accept="application/json" /></label>
+      <button id="resetBtn" class="danger">Reset</button>
+    </div>
+  </header>
+
+  <nav id="tabs" class="tabs">
+    <button data-tab="setup" class="active">Setup</button>
+    <button data-tab="structure">Structure</button>
+    <button data-tab="offers">Offers & Pricing</button>
+    <button data-tab="pipeline">Pipeline</button>
+    <button data-tab="projects">Projects</button>
+    <button data-tab="dashboard">Dashboard</button>
+  </nav>
+
+  <main>
+    <section id="setup" class="tab active">
+      <h2>1) Conflict & Safety Gate</h2>
+      <p>Do not proceed with any client until these are all true.</p>
+      <div id="checklist" class="card"></div>
+      <div class="card">
+        <h3>Readout</h3>
+        <p id="complianceStatus"></p>
+      </div>
+    </section>
+
+    <section id="structure" class="tab">
+      <h2>2) You + Friend Operating Model</h2>
+      <div class="grid two">
+        <div class="card">
+          <h3>Inputs</h3>
+          <label>Who owns client relationship?
+            <select id="ownerSide">
+              <option value="you">You</option>
+              <option value="friend">Friend</option>
+              <option value="per-project">Per project</option>
+            </select>
+          </label>
+          <label>Preferred legal setup
+            <select id="legalStyle">
+              <option value="separate-llc">Separate LLCs (recommended)</option>
+              <option value="sole-prop">Sole prop + subcontractor</option>
+            </select>
+          </label>
+          <label>Revenue split (% to delivery subcontractor)
+            <input id="subPct" type="number" min="0" max="100" value="35" />
+          </label>
+          <label>Risk tolerance
+            <select id="riskTolerance">
+              <option value="low">Low</option>
+              <option value="med">Medium</option>
+              <option value="high">High</option>
+            </select>
+          </label>
+          <button id="generateModel">Generate Model</button>
+        </div>
+        <div class="card">
+          <h3>Recommendation</h3>
+          <div id="modelOutput"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="offers" class="tab">
+      <h2>3) Offer & Pricing Engine</h2>
+      <div class="grid two">
+        <div class="card">
+          <h3>Engagement Calculator</h3>
+          <label>Engagement type
+            <select id="engagementType">
+              <option value="audit">AI Opportunity Audit (2 wks)</option>
+              <option value="sprint">Workflow Build Sprint (4-6 wks)</option>
+              <option value="retainer">Advisory Retainer (monthly)</option>
+            </select>
+          </label>
+          <label>Client annual revenue ($)
+            <input id="clientRevenue" type="number" value="50000000" />
+          </label>
+          <label>Estimated annual value created ($)
+            <input id="valueCreated" type="number" value="300000" />
+          </label>
+          <label>Fun multiplier (1.0-1.5)
+            <input id="funMultiplier" type="number" min="1" max="1.5" step="0.05" value="1.25" />
+          </label>
+          <label>Urgency multiplier (1.0-1.4)
+            <input id="urgencyMultiplier" type="number" min="1" max="1.4" step="0.05" value="1.1" />
+          </label>
+          <button id="calcPrice">Calculate Price</button>
+          <div id="priceOutput" class="results"></div>
+        </div>
+        <div class="card">
+          <h3>Offer Library</h3>
+          <ul id="offerLibrary"></ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="pipeline" class="tab">
+      <h2>4) Client Pipeline (Fun + Value Filter)</h2>
+      <div class="card">
+        <div class="grid three">
+          <input id="leadName" placeholder="Company / Lead" />
+          <input id="leadChampion" placeholder="Champion" />
+          <select id="leadStage">
+            <option>Lead</option>
+            <option>Discovery</option>
+            <option>Proposal</option>
+            <option>Won</option>
+            <option>Lost</option>
+          </select>
+          <input id="leadPotential" type="number" placeholder="Potential contract $" />
+          <input id="leadFun" type="number" min="1" max="5" placeholder="Fun (1-5)" />
+          <input id="leadValue" type="number" min="1" max="5" placeholder="Value to client (1-5)" />
+          <input id="leadConflict" type="number" min="1" max="5" placeholder="Conflict safety (1-5)" />
+          <input id="leadBudget" type="number" min="1" max="5" placeholder="Budget certainty (1-5)" />
+          <button id="addLead">Add Lead</button>
+        </div>
+      </div>
+      <div class="card">
+        <table>
+          <thead><tr><th>Lead</th><th>Stage</th><th>$</th><th>Score</th><th>Action</th></tr></thead>
+          <tbody id="leadTable"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="projects" class="tab">
+      <h2>5) Active Project Ops</h2>
+      <div class="card">
+        <div class="grid three">
+          <input id="projName" placeholder="Project name" />
+          <input id="projClient" placeholder="Client" />
+          <input id="projContract" type="number" placeholder="Contract value $" />
+          <input id="projHours" type="number" placeholder="Hours budgeted" />
+          <input id="projHoursUsed" type="number" placeholder="Hours used" />
+          <select id="projStatus">
+            <option>Planned</option>
+            <option>In Progress</option>
+            <option>Blocked</option>
+            <option>Delivered</option>
+          </select>
+          <button id="addProject">Add/Update Project</button>
+        </div>
+      </div>
+      <div class="card">
+        <table>
+          <thead><tr><th>Project</th><th>Client</th><th>Status</th><th>Margin Signal</th><th>Action</th></tr></thead>
+          <tbody id="projectTable"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="dashboard" class="tab">
+      <h2>6) Business Dashboard</h2>
+      <div class="grid three stats">
+        <div class="card"><h3>Pipeline Value</h3><p id="kpiPipeline">$0</p></div>
+        <div class="card"><h3>Won Revenue</h3><p id="kpiWon">$0</p></div>
+        <div class="card"><h3>Avg Lead Score</h3><p id="kpiScore">0.0</p></div>
+        <div class="card"><h3>Active Projects</h3><p id="kpiProjects">0</p></div>
+        <div class="card"><h3>Hours Burn</h3><p id="kpiBurn">0%</p></div>
+        <div class="card"><h3>Compliance Status</h3><p id="kpiCompliance">Blocked</p></div>
+      </div>
+      <div class="card">
+        <h3>Next Actions</h3>
+        <ul id="nextActions"></ul>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
