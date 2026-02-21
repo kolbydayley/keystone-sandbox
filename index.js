@@ -496,8 +496,10 @@ app.get('/api/health-data/payloads/:id', (req, res) => {
 const RESEARCH_PATH = path.join(__dirname, 'research');
 // ============ WHOOP OAuth Helper API ============
 
-function whoopAuthEnabled() {
-  return Boolean(WHOOP_CLIENT_ID && WHOOP_REDIRECT_URI);
+function resolveWhoopAuthConfig(req) {
+  const clientId = String(req.query.client_id || WHOOP_CLIENT_ID || '').trim();
+  const redirectUri = String(req.query.redirect_uri || WHOOP_REDIRECT_URI || '').trim();
+  return { clientId, redirectUri };
 }
 
 // Start OAuth: create strong state and return auth URL
@@ -506,16 +508,22 @@ app.get('/api/whoop/oauth/start', (req, res) => {
   if (key !== HEALTH_API_KEY) {
     return res.status(401).json({ success: false, error: 'Unauthorized' });
   }
-  if (!whoopAuthEnabled()) {
-    return res.status(500).json({ success: false, error: 'WHOOP OAuth env not configured', needs: ['WHOOP_CLIENT_ID', 'WHOOP_REDIRECT_URI'] });
+
+  const { clientId, redirectUri } = resolveWhoopAuthConfig(req);
+  if (!clientId || !redirectUri) {
+    return res.status(500).json({
+      success: false,
+      error: 'WHOOP OAuth config missing',
+      needs: ['WHOOP_CLIENT_ID/client_id', 'WHOOP_REDIRECT_URI/redirect_uri']
+    });
   }
 
   const state = crypto.randomBytes(24).toString('base64url');
   db.prepare(`INSERT INTO whoop_oauth_events (state) VALUES (?)`).run(state);
 
   const params = new URLSearchParams({
-    client_id: WHOOP_CLIENT_ID,
-    redirect_uri: WHOOP_REDIRECT_URI,
+    client_id: clientId,
+    redirect_uri: redirectUri,
     response_type: 'code',
     scope: WHOOP_SCOPES,
     state
@@ -524,7 +532,7 @@ app.get('/api/whoop/oauth/start', (req, res) => {
   res.json({
     success: true,
     state,
-    redirectUri: WHOOP_REDIRECT_URI,
+    redirectUri: redirectUri,
     authUrl: `https://api.prod.whoop.com/oauth/oauth2/auth?${params.toString()}`
   });
 });
