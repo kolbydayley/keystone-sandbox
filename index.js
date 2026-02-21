@@ -163,6 +163,9 @@ app.delete('/api/hooks/channel/:channel', (req, res) => {
 
 // ============ Health Data Ingestion (Health Auto Export) ============
 const HEALTH_API_KEY = process.env.HEALTH_API_KEY || 'keystone-health-2026';
+const WHOOP_CLIENT_ID = (process.env.WHOOP_CLIENT_ID || '').trim();
+const WHOOP_REDIRECT_URI = (process.env.WHOOP_REDIRECT_URI || 'https://web-production-4ffef.up.railway.app/oauth/whoop/callback.html').trim();
+const WHOOP_SCOPES = 'offline read:recovery read:cycles read:workout read:sleep read:body_measurement';
 
 function shouldCaptureHealthPayload(req) {
   if (process.env.HEALTH_CAPTURE_ALL === 'true') return true;
@@ -491,6 +494,117 @@ app.get('/api/health-data/payloads/:id', (req, res) => {
 
 // ============ Research Docs API ============
 const RESEARCH_PATH = path.join(__dirname, 'research');
+// ============ WHOOP OAuth Helper API ============
+
+function whoopAuthEnabled() {
+  return Boolean(WHOOP_CLIENT_ID && WHOOP_REDIRECT_URI);
+}
+
+// Start OAuth: create strong state and return auth URL
+app.get('/api/whoop/oauth/start', (req, res) => {
+  const key = req.query.key;
+  if (key !== HEALTH_API_KEY) {
+    return res.status(401).json({ success: false, error: 'Unauthorized' });
+  }
+  if (!whoopAuthEnabled()) {
+    return res.status(500).json({ success: false, error: 'WHOOP OAuth env not configured', needs: ['WHOOP_CLIENT_ID', 'WHOOP_REDIRECT_URI'] });
+  }
+
+  const state = crypto.randomBytes(24).toString('base64url');
+  db.prepare(`INSERT INTO whoop_oauth_events (state) VALUES (?)`).run(state);
+
+  const params = new URLSearchParams({
+    client_id: WHOOP_CLIENT_ID,
+    redirect_uri: WHOOP_REDIRECT_URI,
+    response_type: 'code',
+    scope: WHOOP_SCOPES,
+    state
+  });
+
+  res.json({
+    success: true,
+    state,
+    redirectUri: WHOOP_REDIRECT_URI,
+    authUrl: `https://api.prod.whoop.com/oauth/oauth2/auth?${params.toString()}`
+  });
+});
+
+// Called by callback page JS. Stores code/error server-side (no chat copy needed).
+app.post('/api/whoop/oauth/callback-capture', (req, res) => {
+  const { code, state, scope, error, error_description } = req.body || {};
+
+  if (!state || typeof state !== 'string' || state.length < 8) {
+    return res.status(400).json({ success: false, error: 'Invalid state' });
+  }
+
+  const event = db.prepare(`
+    SELECT id, state, consumed_at
+    FROM whoop_oauth_events
+    WHERE state=?
+    ORDER BY id DESC
+    LIMIT 1
+  `).get(state);
+
+  if (!event) {
+    return res.status(404).json({ success: false, error: 'Unknown state' });
+  }
+  if (event.consumed_at) {
+    return res.status(409).json({ success: false, error: 'State already consumed' });
+  }
+
+  db.prepare(`
+    UPDATE whoop_oauth_events
+    SET code=?, scope=?, error=?, error_description=?
+    WHERE id=?
+  `).run(code || null, scope || null, error || null, error_description || null, event.id);
+
+  res.json({ success: true, captured: true, hasCode: Boolean(code), hasError: Boolean(error) });
+});
+
+// Poll latest result for a specific state (key-protected)
+app.get('/api/whoop/oauth/latest', (req, res) => {
+  const { key, state } = req.query;
+  if (key !== HEALTH_API_KEY) {
+    return res.status(401).json({ success: false, error: 'Unauthorized' });
+  }
+  if (!state) {
+    return res.status(400).json({ success: false, error: 'state required' });
+  }
+
+  const event = db.prepare(`
+    SELECT id, state, code, scope, error, error_description, consumed_at, created_at
+    FROM whoop_oauth_events
+    WHERE state=?
+    ORDER BY id DESC
+    LIMIT 1
+  `).get(String(state));
+
+  if (!event) {
+    return res.status(404).json({ success: false, error: 'Unknown state' });
+  }
+
+  res.json({ success: true, data: event });
+});
+
+// Mark a state as consumed once local exchange is complete
+app.post('/api/whoop/oauth/consume', (req, res) => {
+  const { key, state } = req.body || {};
+  if (key !== HEALTH_API_KEY) {
+    return res.status(401).json({ success: false, error: 'Unauthorized' });
+  }
+  if (!state) {
+    return res.status(400).json({ success: false, error: 'state required' });
+  }
+
+  const result = db.prepare(`
+    UPDATE whoop_oauth_events
+    SET consumed_at = CURRENT_TIMESTAMP
+    WHERE state=? AND consumed_at IS NULL
+  `).run(String(state));
+
+  res.json({ success: true, updated: result.changes });
+});
+
 const DECISIONS_FILE = path.join(__dirname, 'decisions.json');
 
 // Load decisions

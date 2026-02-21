@@ -157,6 +157,21 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_chat_logs_created_at ON chat_logs(created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_chat_logs_session ON chat_logs(session_id);
+
+  -- WHOOP OAuth event capture (for no-copy auth flow)
+  CREATE TABLE IF NOT EXISTS whoop_oauth_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    state TEXT NOT NULL,
+    code TEXT,
+    scope TEXT,
+    error TEXT,
+    error_description TEXT,
+    consumed_at DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_whoop_oauth_events_state ON whoop_oauth_events(state, created_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_whoop_oauth_events_created ON whoop_oauth_events(created_at DESC);
 `);
 
 module.exports = db;

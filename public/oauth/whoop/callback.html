@@ -13,7 +13,7 @@
 <body>
   <h1>WHOOP OAuth Callback Received</h1>
   <p class="ok">Authorization callback loaded successfully.</p>
-  <p>You can close this window and return to Keel.</p>
+  <p id="status">Capturing OAuth result securely…</p>
 
   <h2>Callback Parameters</h2>
   <pre id="params">Loading...</pre>
@@ -23,10 +23,37 @@
     const data = {
       code: p.get('code') || null,
       state: p.get('state') || null,
+      scope: p.get('scope') || null,
       error: p.get('error') || null,
       error_description: p.get('error_description') || null
     };
     document.getElementById('params').textContent = JSON.stringify(data, null, 2);
+
+    async function capture() {
+      const statusEl = document.getElementById('status');
+      if (!data.state) {
+        statusEl.textContent = 'Missing state. Please return to Keel.';
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/whoop/oauth/callback-capture', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        const out = await res.json();
+        if (res.ok && out.success) {
+          statusEl.textContent = 'Captured successfully. You can close this window and return to Keel.';
+        } else {
+          statusEl.textContent = `Capture failed: ${out.error || 'unknown error'}`;
+        }
+      } catch (e) {
+        statusEl.textContent = `Capture failed: ${e.message}`;
+      }
+    }
+
+    capture();
   </script>
 </body>
 </html>
