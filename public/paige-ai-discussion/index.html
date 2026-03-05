@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI, Children, and School — Discussion Guide for Parents, Teachers & Counselors</title>
+  <meta name="description" content="A practical, shareable guide synthesizing three expert videos on AI’s impact on children’s learning, mental health, and social development." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b1020;
+      --bg-soft: #131a33;
+      --panel: rgba(19, 26, 51, 0.8);
+      --panel-2: rgba(255,255,255,0.05);
+      --text: #eef2ff;
+      --muted: #b8c2e0;
+      --subtle: #8ea0cc;
+      --line: rgba(255,255,255,0.1);
+      --blue: #6ea8fe;
+      --purple: #b28cff;
+      --teal: #69e3d0;
+      --green: #86efac;
+      --yellow: #fcd34d;
+      --red: #fca5a5;
+      --shadow: 0 20px 60px rgba(0,0,0,0.35);
+      --radius: 22px;
+      --radius-sm: 14px;
+      --max: 1180px;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: 'Inter', system-ui, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(110,168,254,0.18), transparent 28%),
+        radial-gradient(circle at top right, rgba(178,140,255,0.16), transparent 30%),
+        linear-gradient(180deg, #0a0f1f 0%, #0d1327 100%);
+      line-height: 1.6;
+    }
+    a { color: var(--blue); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .wrap { max-width: var(--max); margin: 0 auto; padding: 0 20px; }
+    .hero {
+      padding: 72px 0 42px;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1.3fr 0.9fr;
+      gap: 24px;
+      align-items: stretch;
+    }
+    .glass {
+      background: var(--panel);
+      backdrop-filter: blur(18px);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+    .hero-card { padding: 34px; }
+    .eyebrow {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(105,227,208,0.12);
+      border: 1px solid rgba(105,227,208,0.2);
+      color: #c9fff5;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+    h1 {
+      margin: 18px 0 16px;
+      font-size: clamp(2.2rem, 4vw, 4.4rem);
+      line-height: 1.03;
+      letter-spacing: -0.04em;
+    }
+    .hero p.lead {
+      font-size: 1.15rem;
+      color: var(--muted);
+      margin: 0 0 22px;
+      max-width: 750px;
+    }
+    .cta-row { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 22px; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 13px 18px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      font-weight: 700;
+      transition: 0.2s ease;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--blue), var(--purple));
+      color: white;
+      border: none;
+      box-shadow: 0 10px 30px rgba(110,168,254,0.28);
+    }
+    .btn-secondary {
+      background: rgba(255,255,255,0.04);
+      color: var(--text);
+    }
+    .btn:hover { transform: translateY(-1px); text-decoration: none; }
+    .stat-list {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 28px;
+    }
+    .stat {
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 16px;
+    }
+    .stat .num { font-size: 1.6rem; font-weight: 800; margin-bottom: 4px; }
+    .stat .label { font-size: 0.92rem; color: var(--subtle); }
+    .hero-side {
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 20px;
+    }
+    .hero-side h3 { margin: 0 0 8px; font-size: 1.15rem; }
+    .hero-side p { margin: 0; color: var(--muted); }
+    .mini-list { padding-left: 18px; margin: 12px 0 0; color: var(--muted); }
+    .mini-list li { margin: 8px 0; }
+    .section { padding: 24px 0 18px; }
+    .section h2 {
+      font-size: clamp(1.5rem, 2vw, 2.2rem);
+      margin: 0 0 14px;
+      letter-spacing: -0.03em;
+    }
+    .section-intro { color: var(--muted); margin: 0 0 20px; max-width: 840px; }
+    .grid { display: grid; gap: 18px; }
+    .grid-2 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    .grid-3 { grid-template-columns: repeat(3, minmax(0,1fr)); }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: var(--shadow);
+    }
+    .card h3, .card h4 { margin-top: 0; }
+    .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 18px; }
+    .pill {
+      padding: 7px 11px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 0.84rem;
+      font-weight: 600;
+    }
+    ul.clean, ol.clean { padding-left: 20px; margin: 12px 0 0; }
+    ul.clean li, ol.clean li { margin: 10px 0; }
+    .quote {
+      border-left: 4px solid var(--teal);
+      padding: 14px 16px;
+      background: rgba(105,227,208,0.08);
+      border-radius: 0 14px 14px 0;
+      color: #e7fffb;
+      font-weight: 500;
+      margin-top: 14px;
+    }
+    .callout {
+      padding: 18px 20px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: linear-gradient(135deg, rgba(110,168,254,0.13), rgba(178,140,255,0.10));
+      color: var(--text);
+    }
+    .callout strong { color: white; }
+    .myth {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: 1fr 1fr;
+      margin-top: 14px;
+    }
+    .myth > div {
+      padding: 16px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.04);
+    }
+    .myth .label {
+      display: inline-block;
+      font-size: 0.8rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+    .label-myth { color: var(--yellow); }
+    .label-reality { color: var(--green); }
+    .video-title { margin-bottom: 8px; font-size: 1.3rem; }
+    .muted { color: var(--muted); }
+    .footer {
+      padding: 44px 0 70px;
+      color: var(--subtle);
+      font-size: 0.95rem;
+    }
+    .source-list a { word-break: break-word; }
+    @media (max-width: 980px) {
+      .hero-grid, .grid-2, .grid-3, .myth { grid-template-columns: 1fr; }
+      .stat-list { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="wrap hero-grid">
+      <section class="glass hero-card">
+        <div class="eyebrow">Shareable discussion guide · AI & children</div>
+        <h1>How AI is changing childhood, learning, and mental health</h1>
+        <p class="lead">A practical synthesis for parents, teachers, and school counselors based on three expert discussions from Harvard and Children and Screens. Designed to be easy to skim, easy to discuss, and easy to share.</p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="#talking-points">Jump to talking points</a>
+          <a class="btn btn-secondary" href="#videos">See source videos</a>
+        </div>
+        <div class="stat-list">
+          <div class="stat">
+            <div class="num">10</div>
+            <div class="label">practical discussion points</div>
+          </div>
+          <div class="stat">
+            <div class="num">5</div>
+            <div class="label">myths vs realities</div>
+          </div>
+          <div class="stat">
+            <div class="num">2 min</div>
+            <div class="label">ready-made speaking outline</div>
+          </div>
+        </div>
+      </section>
+      <aside class="glass hero-side">
+        <div>
+          <h3>Best short takeaway</h3>
+          <p>AI is not just a cheating issue. It is a <strong>learning issue</strong>, a <strong>development issue</strong>, and in some cases a <strong>mental health and safety issue</strong>.</p>
+        </div>
+        <div>
+          <h3>What this guide emphasizes</h3>
+          <ul class="mini-list">
+            <li>Where AI can genuinely help children</li>
+            <li>Where it can quietly replace thinking, practice, or human connection</li>
+            <li>What adults can do without panic or techno-optimism</li>
+          </ul>
+        </div>
+        <div class="callout">
+          <strong>Important note:</strong> This page synthesizes the publicly available descriptions/metadata from the videos and the themes explicitly stated by the sources. It is meant to be practical and faithful, not sensational.
+        </div>
+      </aside>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="section" id="talking-points">
+      <h2>Top discussion points for teachers and counselors</h2>
+      <p class="section-intro">If Paige is leading a room, these are the points most likely to be useful, grounded, and discussion-worthy for educators and school mental health staff.</p>
+      <div class="grid grid-2">
+        <div class="card">
+          <ol class="clean">
+            <li><strong>AI should not be framed only as “cheating.”</strong> The deeper issue is whether it is helping children think, learn, and regulate better — or quietly doing that work for them.</li>
+            <li><strong>Convenience can mask cognitive cost.</strong> If AI handles brainstorming, organizing, drafting, and problem-solving too early, children may lose repetitions that build judgment and confidence.</li>
+            <li><strong>Not all support is healthy support.</strong> AI tools may feel emotionally responsive, but “feeling heard” is not the same thing as safe, evidence-based mental health care.</li>
+            <li><strong>Children are especially vulnerable to overtrust.</strong> Kids and teens may read fluency, warmth, or speed as intelligence, truth, or care — even when the tool is wrong.</li>
+            <li><strong>Age and developmental stage matter.</strong> The right question is not “Is this AI tool good or bad?” but “What is this child outsourcing at this age?”</li>
+          </ol>
+        </div>
+        <div class="card">
+          <ol class="clean" start="6">
+            <li><strong>AI can support learning when it acts like a coach, not a replacement.</strong> It is more promising when it prompts thinking, reflection, and revision instead of producing finished answers.</li>
+            <li><strong>Human relationships still do irreplaceable work.</strong> Children build resilience, empathy, and social understanding through real people — teachers, peers, counselors, and caregivers.</li>
+            <li><strong>Mental health use cases need extra caution.</strong> Tools that present as “therapy,” emotional support, or crisis help may create false reassurance, dependency, or harm.</li>
+            <li><strong>Schools need norms before they need slogans.</strong> Students need concrete guidance: when AI is okay, when it is not, and how to show their own thinking.</li>
+            <li><strong>Adults need to learn alongside kids.</strong> The healthiest stance is neither fear nor blind adoption — it is active co-learning and thoughtful boundaries.</li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="soundbites">
+      <h2>Short, shareable one-liners</h2>
+      <div class="grid grid-2">
+        <div class="card">
+          <ul class="clean">
+            <li>AI is not just answering questions — it is starting to shape how kids think, feel, and relate.</li>
+            <li>The risk is not only bad answers. The risk is skipped thinking.</li>
+            <li>Useful AI should act more like a tutor than a ghostwriter.</li>
+            <li>When a child outsources struggle, they may also outsource growth.</li>
+            <li>Fluent language can make AI sound wise even when it is wrong.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <ul class="clean">
+            <li>“Emotionally responsive” is not the same as emotionally safe.</li>
+            <li>Kids do not just need access to tools; they need judgment about when not to use them.</li>
+            <li>The question is not whether AI is here — it is what role we want it to play in childhood.</li>
+            <li>Critical thinking weakens when the machine always thinks first.</li>
+            <li>Adults should not just monitor AI use; they should model it.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="myths">
+      <h2>Myths vs realities</h2>
+      <div class="grid">
+        <div class="card">
+          <div class="myth">
+            <div>
+              <div class="label label-myth">Myth</div>
+              AI is basically just a faster search engine.
+            </div>
+            <div>
+              <div class="label label-reality">Reality</div>
+              It is increasingly acting like a conversational partner, tutor, advisor, and pseudo-helper — which changes how children trust and use it.
+            </div>
+          </div>
+          <div class="myth">
+            <div>
+              <div class="label label-myth">Myth</div>
+              If AI helps a student finish work faster, that is automatically a win.
+            </div>
+            <div>
+              <div class="label label-reality">Reality</div>
+              Faster completion can mean less practice, less struggle, and less durable learning.
+            </div>
+          </div>
+          <div class="myth">
+            <div>
+              <div class="label label-myth">Myth</div>
+              AI companionship or “therapy mode” is harmless if a child feels better.
+            </div>
+            <div>
+              <div class="label label-reality">Reality</div>
+              Mental health tools can create serious safety and ethical issues, especially when children overtrust them or use them in distress.
+            </div>
+          </div>
+          <div class="myth">
+            <div>
+              <div class="label label-myth">Myth</div>
+              Kids are digital natives, so they naturally know how to use AI wisely.
+            </div>
+            <div>
+              <div class="label label-reality">Reality</div>
+              Familiarity with technology does not equal discernment, skepticism, or developmental readiness.
+            </div>
+          </div>
+          <div class="myth">
+            <div>
+              <div class="label label-myth">Myth</div>
+              Schools have to choose between banning AI and embracing it completely.
+            </div>
+            <div>
+              <div class="label label-reality">Reality</div>
+              The better path is selective, transparent, age-aware use with clear boundaries and adult guidance.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="actions">
+      <h2>What schools and families can do right now</h2>
+      <div class="grid grid-3">
+        <div class="card">
+          <h3>1. Define acceptable use clearly</h3>
+          <p class="muted">Move beyond “don’t cheat.” Give examples of acceptable AI support, unacceptable replacement, and how students should disclose use.</p>
+        </div>
+        <div class="card">
+          <h3>2. Protect thinking-heavy tasks</h3>
+          <p class="muted">Preserve assignments where students must generate ideas, reason, revise, and explain their thinking in their own words.</p>
+        </div>
+        <div class="card">
+          <h3>3. Treat mental health AI as high-risk</h3>
+          <p class="muted">Be especially cautious with chatbots or apps that imply therapy, crisis support, or emotional guidance for children and teens.</p>
+        </div>
+        <div class="card">
+          <h3>4. Teach “AI literacy,” not just rules</h3>
+          <p class="muted">Students need to learn when AI is useful, when it is misleading, and how to question its output instead of defaulting to trust.</p>
+        </div>
+        <div class="card">
+          <h3>5. Practice co-learning</h3>
+          <p class="muted">Parents and educators should explore tools with children, ask what they are using AI for, and talk openly about tradeoffs.</p>
+        </div>
+        <div class="card">
+          <h3>6. Keep humans in the loop</h3>
+          <p class="muted">The more emotionally sensitive or developmentally important the task, the less it should be delegated entirely to AI.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="paige-outline">
+      <h2>A simple 2-minute opening Paige could use</h2>
+      <div class="card">
+        <p>“I think one of the biggest mistakes we can make is treating AI as only a cheating problem. It’s bigger than that. These tools are starting to affect how children learn, how they solve problems, how they build confidence, and even how they seek emotional support.</p>
+        <p>What stood out to me across these expert conversations is that AI can be genuinely useful — but only when it supports development instead of replacing it. If it helps a child reflect, practice, or explore, that can be good. But if it starts doing the thinking, the drafting, the coping, or the relating for them, then we may be weakening the very muscles children need to build.</p>
+        <p>For schools and families, the goal probably isn’t panic and it isn’t blind adoption either. It’s to ask better questions: What is this tool helping with? What is it replacing? What does this child still need to practice themselves? And where do we need human adults — teachers, counselors, and parents — to stay firmly in the loop?</p>
+        <p>So I’d love for us to talk today not just about whether kids are using AI, but about what kinds of thinking, learning, and support we want childhood to still require from humans.”</p>
+      </div>
+    </section>
+
+    <section class="section" id="videos">
+      <h2>Source videos and what each contributes</h2>
+      <p class="section-intro">These summaries stick closely to what the videos explicitly describe.</p>
+      <div class="grid">
+        <article class="card">
+          <h3 class="video-title"><a href="https://www.youtube.com/watch?v=z2TSHNK8fY8" target="_blank" rel="noopener noreferrer">Virtual Therapy? Navigating AI-Powered Interventions for Mental Health</a></h3>
+          <div class="pill-row">
+            <span class="pill">Harvard Medical School Center for Bioethics</span>
+            <span class="pill">Mental health</span>
+            <span class="pill">Youth safety</span>
+          </div>
+          <p class="muted">This seminar focuses on AI-powered mental health tools — from apps to bots to “therapy” modes — and the tension between access and safety. The video description explicitly notes both the promise of broader access and the emergence of serious negative outcomes, including user suicide. It also flags youth as potentially especially susceptible to the risks of these systems.</p>
+          <h4>Most useful points for educators/counselors</h4>
+          <ul class="clean">
+            <li>AI mental health support is expanding faster than the evidence base.</li>
+            <li>Feeling supported by a chatbot is not the same as receiving appropriate clinical care.</li>
+            <li>Youth may be uniquely vulnerable to overtrusting persuasive or emotionally fluent systems.</li>
+            <li>Schools should be careful about any tool that markets itself as emotional support or therapy-adjacent.</li>
+            <li>The right frame is not “innovation vs fear” — it is access <em>and</em> safety.</li>
+          </ul>
+          <div class="quote">“Anyone with a smartphone in their palm now has access to countless tools that implicitly and/or explicitly promise to improve mental health.”</div>
+        </article>
+
+        <article class="card">
+          <h3 class="video-title"><a href="https://www.youtube.com/watch?v=PXp59FDQ_3o" target="_blank" rel="noopener noreferrer">Harvard Thinking: Preserving learning in the age of AI shortcuts</a></h3>
+          <div class="pill-row">
+            <span class="pill">Harvard University</span>
+            <span class="pill">Learning</span>
+            <span class="pill">Critical thinking</span>
+          </div>
+          <p class="muted">This discussion centers on the dilemma educators face: how to use AI tools to enhance learning rather than replace it. The description and summary highlight risks to cognitive development when tools “do the thinking” for users, and emphasize ethical, effective integration across educational settings.</p>
+          <h4>Most useful points for educators/counselors</h4>
+          <ul class="clean">
+            <li>The key risk is not just plagiarism — it is cognitive outsourcing.</li>
+            <li>Students may complete work without building the underlying skill.</li>
+            <li>AI can be valuable when it supports reflection, explanation, or revision rather than delivering finished thinking.</li>
+            <li>Schools need intentional design if they want AI to deepen learning instead of flatten it.</li>
+            <li>Critical thinking has to be protected on purpose.</li>
+          </ul>
+          <div class="quote">“How do they make the most of AI’s potential, while also protecting students’ ability to think for themselves?”</div>
+        </article>
+
+        <article class="card">
+          <h3 class="video-title"><a href="https://www.youtube.com/watch?v=YqyPueTOf5g" target="_blank" rel="noopener noreferrer">AI's Impact on Children's Social and Cognitive Development with Ying Xu, PhD</a></h3>
+          <div class="pill-row">
+            <span class="pill">Children and Screens</span>
+            <span class="pill">Child development</span>
+            <span class="pill">Co-learning</span>
+          </div>
+          <p class="muted">This conversation explicitly addresses how AI may affect children’s social development, critical thinking, and age-appropriate learning. It also emphasizes practical questions: how children are using AI now, where it can support learning, when it risks outsourcing thought, how to judge developmental appropriateness, and why co-learning with children matters.</p>
+          <h4>Most useful points for educators/counselors</h4>
+          <ul class="clean">
+            <li>Children are already interacting with generative AI and related tools in everyday settings.</li>
+            <li>AI may support learning in some contexts while undermining independent thinking in others.</li>
+            <li>Social development matters too — not just academic outcomes.</li>
+            <li>Age-appropriateness should be part of every evaluation of AI use with kids.</li>
+            <li>Children should not just consume AI; their needs should shape how it is designed and used.</li>
+            <li>Adults should practice “co-learning” rather than assuming kids can navigate this alone.</li>
+          </ul>
+          <div class="quote">“Where AI can support children’s learning — and where it risks ‘outsourcing’ independent thinking and critical problem-solving skills.”</div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" id="questions">
+      <h2>Good questions to ask in the room</h2>
+      <div class="grid grid-2">
+        <div class="card">
+          <ul class="clean">
+            <li>Where are we seeing AI genuinely help students learn, and where are we seeing it replace effort?</li>
+            <li>What school tasks should remain deliberately human and thinking-intensive?</li>
+            <li>How should we talk to students about AI support versus AI dependence?</li>
+            <li>What would age-appropriate AI use look like in elementary, middle, and high school?</li>
+          </ul>
+        </div>
+        <div class="card">
+          <ul class="clean">
+            <li>How should counselors respond when students use AI for emotional support?</li>
+            <li>What warning signs would suggest unhealthy reliance on AI tools?</li>
+            <li>What norms should schools set for transparency and disclosure?</li>
+            <li>How can parents and educators co-learn without becoming either naïve or alarmist?</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="sources">
+      <h2>Original videos</h2>
+      <div class="card source-list">
+        <ul class="clean">
+          <li><a href="https://www.youtube.com/watch?v=z2TSHNK8fY8" target="_blank" rel="noopener noreferrer">Virtual Therapy? Navigating AI-Powered Interventions for Mental Health</a></li>
+          <li><a href="https://www.youtube.com/watch?v=PXp59FDQ_3o" target="_blank" rel="noopener noreferrer">Harvard Thinking: Preserving learning in the age of AI shortcuts</a></li>
+          <li><a href="https://www.youtube.com/watch?v=YqyPueTOf5g" target="_blank" rel="noopener noreferrer">AI's Impact on Children's Social and Cognitive Development with Ying Xu, PhD</a></li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <footer class="wrap footer">
+    Built as a clean shareable summary page for Paige. If you want, this can be expanded into a version with speaker notes, printable handout formatting, or a parents-vs-educators toggle.
+  </footer>
+</body>
+</html>
